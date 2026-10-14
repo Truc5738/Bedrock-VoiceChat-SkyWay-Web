@@ -1,0 +1,45 @@
+# Standalone Voice Chat Roadmap
+
+This branch adds a floating controller and expands Android controls. It is a work-in-progress companion app, not a finished release.
+
+## 10 UI features implemented or scaffolded
+1. Vietnamese main screen and status label.
+2. Saved gateway host.
+3. Saved gateway port.
+4. Pair-code input.
+5. Connect button.
+6. Disconnect button.
+7. Permission flow for draw-over-apps.
+8. Draggable floating bubble.
+9. Floating mic mute/unmute control.
+10. Floating speaker mute/unmute control.
+11. Push-to-talk mode toggle (the hold gesture still needs implementation).
+12. Auto-reconnect preference.
+13. Open app from the overlay.
+14. Collapse/expand overlay controls.
+15. Stop overlay service control.
+16. Persistent foreground-service notification.
+
+## 10 other features implemented or scaffolded
+1. Android microphone permission declaration.
+2. Android foreground microphone service declaration.
+3. Android overlay permission declaration.
+4. WebSocket room relay service skeleton.
+5. Six-digit room code generation.
+6. Join-by-room-code validation.
+7. Room capacity limit.
+8. Binary audio frame relay.
+9. Heartbeat checks for stale WebSocket connections.
+10. Health-check endpoint for hosting.
+11. Render deployment blueprint in Singapore.
+12. Existing TCP gateway audio client retained for compatibility.
+
+## Important engineering status
+- This is not yet a production-ready, one-tap independent voice app.
+- The Android client now includes a WebSocket room client and the main screen offers create-room and join-room actions. The legacy TCP client code remains in the source for compatibility, but the visible connection flow uses WebSocket rooms.
+- The overlay service starts a foreground service and draws controls, but the WebSocket microphone/audio engine is still owned by the activity-side client. Android lifecycle integration must be completed before audio can be claimed to continue reliably after the activity is destroyed.
+- The overlay now has a press-and-hold-to-talk control when push-to-talk mode is enabled; this needs Android accessibility and device testing.
+- The room relay still needs authenticated room ownership, rate limiting, TLS deployment verification, and abuse protections before public use.
+- Fixed the retry loop when auto-reconnect is disabled, and the overlay now refreshes connection status automatically every second.
+- The current WebSocket integration has not yet been confirmed by a completed CI build or physical-device tests. The overlay is still a controller only: the WebSocket audio engine is not owned by the foreground service, so reliable audio after Android destroys the activity is not guaranteed. Do not distribute as a finished APK until these pass.
+- Android 13+ notification permission and Android 14+ foreground microphone service rules must be tested on device.

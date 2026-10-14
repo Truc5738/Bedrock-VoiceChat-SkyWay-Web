@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: minecraft-pe-voice-room
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: standalone-voice-server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
