@@ -135,6 +135,32 @@ class MainActivity : Activity() {
         row.addView(mic, LinearLayout.LayoutParams(0, dp(50), 1f)); row.addView(android.view.View(this), LinearLayout.LayoutParams(dp(8),1))
         row.addView(speaker, LinearLayout.LayoutParams(0, dp(50), 1f))
         controls.addView(row); controls.addView(gap(8))
+
+        val pttToggle = button(if (VoiceControls.pushToTalk.get()) "▣  Nhấn giữ để nói: BẬT" else "▣  Nhấn giữ để nói: TẮT")
+        pttToggle.setOnClickListener {
+            val enabled = !VoiceControls.pushToTalk.get()
+            VoiceControls.pushToTalk.set(enabled)
+            if (!enabled) VoiceControls.pushToTalkPressed.set(false)
+            pttToggle.text = if (enabled) "▣  Nhấn giữ để nói: BẬT" else "▣  Nhấn giữ để nói: TẮT"
+        }
+        controls.addView(pttToggle, LinearLayout.LayoutParams(-1, dp(46)))
+        controls.addView(gap(4))
+        val mainVolumeLabel = label("ÂM LƯỢNG LOA  " + VoiceControls.speakerVolume.get() + "%", 11f, softText, true)
+        val mainVolume = SeekBar(this).apply {
+            max = 100; progress = VoiceControls.speakerVolume.get()
+            progressTintList = android.content.res.ColorStateList.valueOf(green)
+            thumbTintList = android.content.res.ColorStateList.valueOf(green)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    VoiceControls.speakerVolume.set(progress)
+                    mainVolumeLabel.text = "ÂM LƯỢNG LOA  " + progress + "%"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        controls.addView(mainVolumeLabel); controls.addView(mainVolume)
+        controls.addView(gap(6))
         val overlay = button("▣   Bật bong bóng nổi")
         controls.addView(overlay, LinearLayout.LayoutParams(-1, dp(48)))
         body.addView(controls); body.addView(gap(12))
