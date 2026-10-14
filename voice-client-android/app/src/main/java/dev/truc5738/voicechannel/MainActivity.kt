@@ -155,6 +155,10 @@ class MainActivity : Activity() {
                         } catch (_: InterruptedException) {
                             break
                         }
+                    } else if (wantConnection) {
+                        // Do not spin in a tight loop when the user disabled auto-reconnect.
+                        wantConnection = false
+                        break
                     }
                     firstConnection = false
                 }
