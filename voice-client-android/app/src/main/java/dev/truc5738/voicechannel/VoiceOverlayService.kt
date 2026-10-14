@@ -209,8 +209,41 @@ class VoiceOverlayService : Service() {
         bottom.addView(open, LinearLayout.LayoutParams(0, dp(40), 1f)); bottom.addView(android.view.View(this), LinearLayout.LayoutParams(dp(7), 1))
         bottom.addView(hide, LinearLayout.LayoutParams(0, dp(40), 1f))
         body.addView(bottom, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
+
+        val extras = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val dock = pill("↔ Ghim cạnh")
+        val theme = pill(if (themeDark) "☀ Sáng" else "☾ Tối")
+        dock.setOnClickListener {
+            val lp = params
+            val wm = windowManager
+            if (lp != null && wm != null) {
+                val screenWidth = resources.displayMetrics.widthPixels
+                lp.x = if (lp.x + root.width / 2 < screenWidth / 2) 0 else (screenWidth - root.width).coerceAtLeast(0)
+                try { wm.updateViewLayout(root, lp) } catch (_: Exception) {}
+                dock.text = if (lp.x == 0) "◀ Đã ghim trái" else "▶ Đã ghim phải"
+            }
+        }
+        theme.setOnClickListener {
+            themeDark = !themeDark
+            val nextBg = if (themeDark) Color.rgb(10, 15, 12) else Color.rgb(35, 48, 39)
+            (root.background as? GradientDrawable)?.apply {
+                setColor(nextBg)
+                setStroke(dp(1), if (themeDark) Color.rgb(64,104,76) else Color.rgb(119,158,126))
+                cornerRadius = dp(17).toFloat()
+            }
+            icon.background = GradientDrawable().apply {
+                setColor(if (themeDark) Color.rgb(34, 71, 47) else Color.rgb(70, 112, 78))
+                shape = GradientDrawable.OVAL
+            }
+            theme.text = if (themeDark) "☀ Sáng" else "☾ Tối"
+        }
+        extras.addView(dock, LinearLayout.LayoutParams(0, dp(38), 1f))
+        extras.addView(android.view.View(this), LinearLayout.LayoutParams(dp(6), 1))
+        extras.addView(theme, LinearLayout.LayoutParams(0, dp(38), 1f))
+        body.addView(extras, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+
         root.addView(body)
-        (root.background as? GradientDrawable)?.apply { setColor(bg); setStroke(dp(1), Color.rgb(64,104,76)); cornerRadius = dp(17).toFloat() }
+        (root.background as? GradientDrawable)?.apply { setColor(if (themeDark) Color.rgb(10, 15, 12) else bg); setStroke(dp(1), Color.rgb(64,104,76)); cornerRadius = dp(17).toFloat() }
         uiHandler.removeCallbacks(statusTicker); uiHandler.post(statusTicker)
     }
 
