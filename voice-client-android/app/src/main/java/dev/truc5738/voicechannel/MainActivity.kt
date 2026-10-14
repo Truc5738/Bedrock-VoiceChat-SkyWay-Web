@@ -43,12 +43,13 @@ class MainActivity : Activity() {
         val status = TextView(this).apply { text = "Disconnected" }
         statusView = status
         val button = Button(this).apply { text = "Connect" }
-        val stop = Button(this).apply { text = "Stop" }
+        val stop = Button(this).apply { text = "Dừng kết nối" }
+        val overlay = Button(this).apply { text = "Bật bong bóng nổi" }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32,32,32,32)
             addView(host); addView(port); addView(pair)
-            addView(status); addView(button); addView(stop)
+            addView(status); addView(button); addView(stop); addView(overlay)
         }
         setContentView(layout)
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -131,6 +132,21 @@ class MainActivity : Activity() {
             }.also { it.isDaemon = true }
             connectionThread = worker
             worker.start()
+        }
+
+        overlay.setOnClickListener {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                status.text = "Cho phép hiển thị trên ứng dụng khác"
+                val intent = android.content.Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            } else {
+                val serviceIntent = android.content.Intent(this, VoiceOverlayService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
+                status.text = "Đã bật bong bóng nổi"
+            }
         }
 
         stop.setOnClickListener {
