@@ -114,13 +114,46 @@ class VoiceOverlayService : Service() {
             return
         }
         expanded = true
+        val state = TextView(this).apply { text = if (VoiceControls.connected.get()) "● Đã kết nối" else "○ Chưa kết nối"; setTextColor(Color.WHITE); textSize = 12f }
+        val mic = Button(this).apply {
+            text = if (VoiceControls.microphoneMuted.get()) "Bật micro" else "Tắt micro"
+            setOnClickListener {
+                val next = !VoiceControls.microphoneMuted.get()
+                VoiceControls.microphoneMuted.set(next)
+                text = if (next) "Bật micro" else "Tắt micro"
+            }
+        }
+        val speaker = Button(this).apply {
+            text = if (VoiceControls.speakerMuted.get()) "Bật loa" else "Tắt loa"
+            setOnClickListener {
+                val next = !VoiceControls.speakerMuted.get()
+                VoiceControls.speakerMuted.set(next)
+                text = if (next) "Bật loa" else "Tắt loa"
+            }
+        }
+        val ptt = Button(this).apply {
+            text = if (VoiceControls.pushToTalk.get()) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
+            setOnClickListener {
+                val next = !VoiceControls.pushToTalk.get()
+                VoiceControls.pushToTalk.set(next)
+                text = if (next) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
+            }
+        }
+        val reconnect = Button(this).apply {
+            text = if (VoiceControls.reconnectEnabled.get()) "Tắt tự kết nối lại" else "Bật tự kết nối lại"
+            setOnClickListener {
+                val next = !VoiceControls.reconnectEnabled.get()
+                VoiceControls.reconnectEnabled.set(next)
+                text = if (next) "Tắt tự kết nối lại" else "Bật tự kết nối lại"
+            }
+        }
         val open = Button(this).apply { text = "Mở ứng dụng"; setOnClickListener {
             val i = Intent(this@VoiceOverlayService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             startActivity(i)
         } }
         val hide = Button(this).apply { text = "Thu gọn"; setOnClickListener { toggleControls(root) } }
         val stop = Button(this).apply { text = "Tắt điều khiển nổi"; setOnClickListener { stopSelf() } }
-        root.addView(open); root.addView(hide); root.addView(stop)
+        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(ptt); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
