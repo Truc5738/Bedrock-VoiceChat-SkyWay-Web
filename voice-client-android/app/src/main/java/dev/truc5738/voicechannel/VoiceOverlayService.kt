@@ -21,6 +21,8 @@ class VoiceOverlayService : Service() {
     private var bubble: LinearLayout? = null
     private var expanded = false
     private var params: WindowManager.LayoutParams? = null
+    private var statusLabel: TextView? = null
+    private var themeDark = false
 
     override fun onCreate() {
         super.onCreate()
@@ -116,6 +118,7 @@ class VoiceOverlayService : Service() {
         }
         expanded = true
         val state = TextView(this).apply { text = if (VoiceControls.connected.get()) "● Đã kết nối" else "○ Chưa kết nối"; setTextColor(Color.WHITE); textSize = 12f }
+        statusLabel = state
         val mic = Button(this).apply {
             text = if (VoiceControls.microphoneMuted.get()) "Bật micro" else "Tắt micro"
             setOnClickListener {
@@ -153,6 +156,8 @@ class VoiceOverlayService : Service() {
                 text = if (next) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
             }
         }
+        val refresh = Button(this).apply { text = "Làm mới trạng thái"; setOnClickListener { statusLabel?.text = if (VoiceControls.connected.get()) "● Đã kết nối" else "○ Chưa kết nối" } }
+        val theme = Button(this).apply { text = "Đổi màu bong bóng"; setOnClickListener { themeDark = !themeDark; (root.background as? GradientDrawable)?.setColor(if (themeDark) Color.rgb(45, 45, 55) else Color.rgb(0, 121, 107)); text = if (themeDark) "Dùng màu xanh" else "Dùng màu tối" } }
         val reconnect = Button(this).apply {
             text = if (VoiceControls.reconnectEnabled.get()) "Tắt tự kết nối lại" else "Bật tự kết nối lại"
             setOnClickListener {
@@ -167,7 +172,7 @@ class VoiceOverlayService : Service() {
         } }
         val hide = Button(this).apply { text = "Thu gọn"; setOnClickListener { toggleControls(root) } }
         val stop = Button(this).apply { text = "Tắt điều khiển nổi"; setOnClickListener { stopSelf() } }
-        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(volumeLabel); root.addView(volumeSlider); root.addView(ptt); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
+        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(volumeLabel); root.addView(volumeSlider); root.addView(ptt); root.addView(refresh); root.addView(theme); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
