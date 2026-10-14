@@ -67,39 +67,39 @@ class VoiceOverlayService : Service() {
         background = GradientDrawable().apply {
             setColor(if (primary) accent else Color.rgb(49, 66, 54)); cornerRadius = dp(14).toFloat()
         }
-        minHeight = dp(44); elevation = 0f; stateListAnimator = null
-        setPadding(dp(8), 0, dp(8), 0)
+        minHeight = dp(38); elevation = 0f; stateListAnimator = null
+        setPadding(dp(5), 0, dp(5), 0)
     }
     private fun showBubble() {
         if (bubble != null) return
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(9), dp(7), dp(9), dp(7))
+            setPadding(dp(5), dp(4), dp(5), dp(4))
             background = GradientDrawable().apply {
-                setColor(bg); cornerRadius = dp(22).toFloat(); setStroke(dp(1), Color.rgb(64, 104, 76))
+                setColor(bg); cornerRadius = dp(17).toFloat(); setStroke(dp(1), Color.rgb(64, 104, 76))
             }
             elevation = dp(8).toFloat()
         }
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val icon = TextView(this).apply {
-            text = "●"; textSize = 20f; gravity = Gravity.CENTER; setTextColor(accent)
+            text = "●"; textSize = 15f; gravity = Gravity.CENTER; setTextColor(accent)
             background = GradientDrawable().apply { setColor(Color.rgb(34, 71, 47)); shape = GradientDrawable.OVAL }
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))
+            layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
         }
         val name = TextView(this).apply {
-            text = "VOICE"; textSize = 12f; setTextColor(Color.WHITE)
+            text = "VC"; textSize = 10f; setTextColor(Color.WHITE)
             setTypeface(typeface, android.graphics.Typeface.BOLD); letterSpacing = 0.08f
-            setPadding(dp(9), 0, dp(8), 0)
+            setPadding(dp(5), 0, dp(4), 0)
         }
-        val state = TextView(this).apply { text = "●"; textSize = 12f; setTextColor(mutedText); gravity = Gravity.CENTER; setPadding(dp(6), 0, dp(4), 0) }
+        val state = TextView(this).apply { text = "●"; textSize = 9f; setTextColor(mutedText); gravity = Gravity.CENTER; setPadding(dp(2), 0, dp(2), 0) }
         statusLabel = state
         val close = TextView(this).apply {
-            text = "×"; textSize = 25f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
-            setPadding(dp(8), 0, dp(3), 0); contentDescription = "Đóng bong bóng"
+            text = "×"; textSize = 20f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+            setPadding(dp(3), 0, dp(1), 0); contentDescription = "Đóng bong bóng"
             setOnClickListener { stopSelf() }
         }
-        header.addView(icon); header.addView(name, LinearLayout.LayoutParams(0, -2, 1f)); header.addView(state); header.addView(close, LinearLayout.LayoutParams(dp(34), dp(38))); root.addView(header)
+        header.addView(icon); header.addView(name, LinearLayout.LayoutParams(0, -2, 1f)); header.addView(state); header.addView(close, LinearLayout.LayoutParams(dp(25), dp(30))); root.addView(header)
         val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
         val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -128,7 +128,7 @@ class VoiceOverlayService : Service() {
     private fun toggleControls(root: LinearLayout) {
         if (expanded) { while (root.childCount > 1) root.removeViewAt(root.childCount - 1); expanded = false; return }
         expanded = true
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(7), dp(8), dp(7), dp(5)) }
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(5), dp(5), dp(5), dp(4)) }
         val titleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val title = TextView(this).apply {
             text = "ĐIỀU KHIỂN THOẠI"; textSize = 10f; setTextColor(mutedText)
@@ -147,8 +147,8 @@ class VoiceOverlayService : Service() {
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val mic = pill(if (VoiceControls.microphoneMuted.get()) "Bật mic" else "Tắt mic", !VoiceControls.microphoneMuted.get())
         val speaker = pill(if (VoiceControls.speakerMuted.get()) "Bật loa" else "Tắt loa", !VoiceControls.speakerMuted.get())
-        buttons.addView(mic, LinearLayout.LayoutParams(0, dp(44), 1f)); buttons.addView(android.view.View(this), LinearLayout.LayoutParams(dp(7), 1))
-        buttons.addView(speaker, LinearLayout.LayoutParams(0, dp(44), 1f)); body.addView(buttons)
+        buttons.addView(mic, LinearLayout.LayoutParams(0, dp(38), 1f)); buttons.addView(android.view.View(this), LinearLayout.LayoutParams(dp(5), 1))
+        buttons.addView(speaker, LinearLayout.LayoutParams(0, dp(38), 1f)); body.addView(buttons)
         mic.setOnClickListener {
             val next = !VoiceControls.microphoneMuted.get(); VoiceControls.microphoneMuted.set(next)
             mic.text = if (next) "Bật mic" else "Tắt mic"
@@ -210,7 +210,7 @@ class VoiceOverlayService : Service() {
         bottom.addView(hide, LinearLayout.LayoutParams(0, dp(40), 1f))
         body.addView(bottom, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
         root.addView(body)
-        (root.background as? GradientDrawable)?.apply { setColor(bg); setStroke(dp(1), Color.rgb(64,104,76)); cornerRadius = dp(22).toFloat() }
+        (root.background as? GradientDrawable)?.apply { setColor(bg); setStroke(dp(1), Color.rgb(64,104,76)); cornerRadius = dp(17).toFloat() }
         uiHandler.removeCallbacks(statusTicker); uiHandler.post(statusTicker)
     }
 
