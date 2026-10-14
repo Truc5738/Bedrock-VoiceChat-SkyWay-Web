@@ -46,6 +46,8 @@ class MainActivity : Activity() {
         val speakerSwitch = Switch(this).apply { text = "Tắt loa"; isChecked = VoiceControls.speakerMuted.get() }
         val pttSwitch = Switch(this).apply { text = "Nhấn giữ để nói"; isChecked = VoiceControls.pushToTalk.get() }
         val reconnectSwitch = Switch(this).apply { text = "Tự kết nối lại"; isChecked = VoiceControls.reconnectEnabled.get() }
+        val volumeLabel = TextView(this).apply { text = "Âm lượng loa: ${VoiceControls.speakerVolume.get()}%" }
+        val volumeSlider = SeekBar(this).apply { max = 100; progress = VoiceControls.speakerVolume.get() }
         val save = Button(this).apply { text = "Lưu địa chỉ" }
         val help = TextView(this).apply { text = "Kết nối thoại độc lập • Không cần Addon Minecraft"; textSize = 14f }
         val status = TextView(this).apply { text = "Disconnected" }
@@ -59,7 +61,7 @@ class MainActivity : Activity() {
             addView(title); addView(help)
             addView(host); addView(port); addView(pair)
             addView(status); addView(button); addView(stop); addView(overlay)
-            addView(micSwitch); addView(speakerSwitch); addView(pttSwitch); addView(reconnectSwitch); addView(save)
+            addView(micSwitch); addView(speakerSwitch); addView(volumeLabel); addView(volumeSlider); addView(pttSwitch); addView(reconnectSwitch); addView(save)
         }
         setContentView(layout)
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -70,6 +72,14 @@ class MainActivity : Activity() {
         speakerSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.speakerMuted.set(checked) }
         pttSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.pushToTalk.set(checked) }
         reconnectSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.reconnectEnabled.set(checked) }
+        volumeSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                VoiceControls.speakerVolume.set(progress)
+                volumeLabel.text = "Âm lượng loa: $progress%"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
         save.setOnClickListener {
             prefs.edit().putString("host", host.text.toString().trim())
                 .putString("port", port.text.toString().trim()).apply()
@@ -241,7 +251,7 @@ class MainActivity : Activity() {
                 if (track.state != AudioTrack.STATE_INITIALIZED) throw IOException("Speaker initialization failed")
                 track.play()
                 while (connectionRunning.get()) {
-                    track.setVolume(if (VoiceControls.speakerMuted.get()) 0f else 1f)
+                    track.setVolume(if (VoiceControls.speakerMuted.get()) 0f else VoiceControls.speakerVolume.get().coerceIn(0, 100) / 100f)
                     val header = ByteArray(29)
                     readFully(input, header)
                     val hb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
