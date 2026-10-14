@@ -38,109 +38,196 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
+    private val bgColor = android.graphics.Color.rgb(13, 22, 18)
+    private val cardColor = android.graphics.Color.rgb(24, 38, 31)
+    private val green = android.graphics.Color.rgb(72, 210, 126)
+    private val softText = android.graphics.Color.rgb(164, 185, 172)
+    private val white = android.graphics.Color.rgb(242, 248, 244)
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun label(t: String, size: Float, color: Int = white, bold: Boolean = false) = TextView(this).apply {
+        text = t; textSize = size; setTextColor(color)
+        if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+    }
+    private fun card() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(16), dp(18), dp(16))
+        background = android.graphics.drawable.GradientDrawable().apply { setColor(cardColor); cornerRadius = dp(20).toFloat() }
+    }
+    private fun button(t: String, primary: Boolean = false) = Button(this).apply {
+        text = t; textSize = 14f; isAllCaps = false
+        setTextColor(if (primary) android.graphics.Color.rgb(9, 35, 20) else white)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(if (primary) green else android.graphics.Color.rgb(42, 60, 49)); cornerRadius = dp(14).toFloat()
+        }
+        minHeight = dp(50); elevation = 0f; stateListAnimator = null
+    }
+    private fun gap(h: Int = 12) = android.view.View(this).apply { layoutParams = LinearLayout.LayoutParams(1, dp(h)) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = bgColor
+        window.navigationBarColor = bgColor
         val prefs = getPreferences(Context.MODE_PRIVATE)
-        val title = TextView(this).apply { text = "Minecraft VoiceChat"; textSize = 24f }
-        val host = EditText(this).apply { hint = "URL máy chủ phòng thoại (https://...)"; setText(prefs.getString("host", "")) }
-        val port = EditText(this).apply { hint = "Cổng TCP cũ (không dùng)"; visibility = android.view.View.GONE }
-        val pair = EditText(this).apply { hint = "Mã phòng (6 chữ số, để trống khi tạo)" }
-        val micSwitch = Switch(this).apply { text = "Tắt micro"; isChecked = VoiceControls.microphoneMuted.get() }
-        val speakerSwitch = Switch(this).apply { text = "Tắt loa"; isChecked = VoiceControls.speakerMuted.get() }
-        val pttSwitch = Switch(this).apply { text = "Nhấn giữ để nói"; isChecked = VoiceControls.pushToTalk.get() }
-        val reconnectSwitch = Switch(this).apply { text = "Tự kết nối lại"; isChecked = VoiceControls.reconnectEnabled.get() }
-        val volumeLabel = TextView(this).apply { text = "Âm lượng loa: ${VoiceControls.speakerVolume.get()}%" }
-        val volumeSlider = SeekBar(this).apply { max = 100; progress = VoiceControls.speakerVolume.get() }
-        val save = Button(this).apply { text = "Lưu địa chỉ" }
-        val help = TextView(this).apply { text = "Kết nối thoại độc lập • Không cần Addon Minecraft"; textSize = 14f }
-        val status = TextView(this).apply { text = "Disconnected" }
-        statusView = status
-        val button = Button(this).apply { text = "Vào phòng" }
-        val createRoom = Button(this).apply { text = "Tạo phòng mới" }
-        val stop = Button(this).apply { text = "Dừng kết nối" }
-        val overlay = Button(this).apply { text = "Bật bong bóng nổi" }
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32,32,32,32)
-            addView(title); addView(help)
-            addView(host); addView(port); addView(pair)
-            addView(status); addView(button); addView(createRoom); addView(stop); addView(overlay)
-            addView(micSwitch); addView(speakerSwitch); addView(volumeLabel); addView(volumeSlider); addView(pttSwitch); addView(reconnectSwitch); addView(save)
-        }
-        setContentView(layout)
-        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
-        }
         sessionToken = prefs.getString("session_token", null)
-        micSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.microphoneMuted.set(checked) }
-        speakerSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.speakerMuted.set(checked) }
-        pttSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.pushToTalk.set(checked) }
-        reconnectSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.reconnectEnabled.set(checked) }
-        volumeSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                VoiceControls.speakerVolume.set(progress)
-                volumeLabel.text = "Âm lượng loa: $progress%"
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        save.setOnClickListener {
-            prefs.edit().putString("host", host.text.toString().trim())
-                .putString("port", port.text.toString().trim()).apply()
-            status.text = "Đã lưu cấu hình"
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bgColor) }
+        val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; setPadding(dp(20), dp(18), dp(20), dp(24)) }
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
+        val mark = label("◉", 28f, green, true).apply {
+            gravity = android.view.Gravity.CENTER
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(android.graphics.Color.rgb(31,70,46)); cornerRadius = dp(15).toFloat() }
+            layoutParams = LinearLayout.LayoutParams(dp(54), dp(54))
         }
+        val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        brand.addView(label("VoiceChannel", 23f, white, true))
+        brand.addView(label("VOICE CHAT  •  BEDROCK", 10f, softText, true))
+        top.addView(mark)
+        top.addView(brand, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) })
+        val settings = button("⚙").apply { textSize = 23f }
+        top.addView(settings, LinearLayout.LayoutParams(dp(52), dp(48)))
+        body.addView(top); body.addView(gap(22))
 
-        fun connectRoom(create: Boolean) {
-            val serverUrl = host.text.toString().trim()
-            val roomCode = pair.text.toString().trim()
-            if (serverUrl.isBlank()) {
-                status.text = "Nhập URL máy chủ phòng thoại"
-                return
+        val hero = card()
+        hero.background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(android.graphics.Color.rgb(31,79,49), android.graphics.Color.rgb(22,43,32))
+        ).apply { cornerRadius = dp(22).toFloat() }
+        hero.addView(label("KẾT NỐI CÙNG ĐỒNG ĐỘI", 11f, green, true))
+        hero.addView(gap(6))
+        hero.addView(label("Chơi cùng nhau.\nNói chuyện tức thì.", 25f, white, true))
+        hero.addView(gap(8))
+        hero.addView(label("Không cần addon Minecraft. Dùng mã phòng để trò chuyện.", 13f, softText))
+        body.addView(hero); body.addView(gap(16))
+
+        val room = card()
+        room.addView(label("PHÒNG THOẠI", 12f, softText, true)); room.addView(gap(8))
+        val host = EditText(this).apply {
+            hint = "Địa chỉ máy chủ (https://...)"; setSingleLine(true); textSize = 14f
+            setTextColor(white); setHintTextColor(softText); setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(12).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
+            setText(prefs.getString("host", "https://minecraft-pe-voice-room.onrender.com"))
+            visibility = android.view.View.GONE
+        }
+        val pair = EditText(this).apply {
+            hint = "Nhập mã phòng gồm 6 số"; setSingleLine(true); inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            textSize = 22f; gravity = android.view.Gravity.CENTER; letterSpacing = 0.18f
+            setTextColor(white); setHintTextColor(softText); setPadding(dp(12), dp(13), dp(12), dp(13))
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(14).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
+        }
+        room.addView(host); room.addView(pair); room.addView(gap(12))
+        val statusRow = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        val dot = label("●", 12f, softText)
+        val status = label("Chưa kết nối", 12f, softText)
+        statusView = status
+        statusRow.addView(dot); statusRow.addView(status, LinearLayout.LayoutParams(-2,-2).apply { marginStart = dp(8) })
+        room.addView(statusRow); body.addView(room); body.addView(gap(12))
+
+        val create = button("＋   Tạo phòng mới", true)
+        val join = button("Vào phòng bằng mã")
+        body.addView(create, LinearLayout.LayoutParams(-1, dp(54))); body.addView(gap(8))
+        body.addView(join, LinearLayout.LayoutParams(-1, dp(54))); body.addView(gap(14))
+
+        val controls = card()
+        controls.addView(label("ĐIỀU KHIỂN NHANH", 12f, softText, true)); controls.addView(gap(10))
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val mic = button(if (VoiceControls.microphoneMuted.get()) "🎙  Bật mic" else "🎙  Tắt mic")
+        val speaker = button(if (VoiceControls.speakerMuted.get()) "🔊  Bật loa" else "🔊  Tắt loa")
+        row.addView(mic, LinearLayout.LayoutParams(0, dp(50), 1f)); row.addView(android.view.View(this), LinearLayout.LayoutParams(dp(8),1))
+        row.addView(speaker, LinearLayout.LayoutParams(0, dp(50), 1f))
+        controls.addView(row); controls.addView(gap(8))
+        val overlay = button("▣   Bật bong bóng nổi")
+        controls.addView(overlay, LinearLayout.LayoutParams(-1, dp(48)))
+        body.addView(controls); body.addView(gap(12))
+        val stop = button("Ngắt kết nối")
+        body.addView(stop, LinearLayout.LayoutParams(-1, dp(48))); body.addView(gap(12))
+        body.addView(label("MẸO  •  Cả hai người dùng cùng máy chủ và mã phòng.", 11f, softText))
+        scroll.addView(body); root.addView(scroll, LinearLayout.LayoutParams(-1,0,1f)); setContentView(root)
+
+        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+
+        fun connectRoom(makeRoom: Boolean) {
+            val server = host.text.toString().trim().ifBlank { "https://minecraft-pe-voice-room.onrender.com" }
+            val code = pair.text.toString().trim()
+            if (!makeRoom && code.length != 6) { status.text = "Nhập đủ mã phòng gồm 6 số"; return }
+            if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100); status.text = "Cấp quyền micro rồi thử lại"; return
             }
-            if (android.os.Build.VERSION.SDK_INT >= 23 &&
-                checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
-                status.text = "Cần cấp quyền micro rồi bấm kết nối lại"
-                return
-            }
-            prefs.edit().putString("host", serverUrl).apply()
+            prefs.edit().putString("host", server).apply()
             roomClient?.disconnect()
             val client = WebSocketVoiceClient(
-                onStatus = { message -> runOnUiThread { statusView?.text = message } },
-                onRoomCode = { code -> runOnUiThread { pair.setText(code) } }
+                onStatus = { message -> runOnUiThread {
+                    statusView?.text = message
+                    dot.setTextColor(if (message.contains("kết nối", true) && !message.contains("lỗi", true)) green else softText)
+                } },
+                onRoomCode = { codeNew -> runOnUiThread {
+                    pair.setText(codeNew); pair.setSelection(pair.text.length)
+                    statusView?.text = "Đã tạo phòng • Gửi mã cho bạn bè"
+                    val cb = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cb.setPrimaryClip(android.content.ClipData.newPlainText("Mã phòng VoiceChannel", codeNew))
+                    Toast.makeText(this, "Đã sao chép mã phòng: " + codeNew, Toast.LENGTH_SHORT).show()
+                } }
             )
             roomClient = client
-            status.text = if (create) "Đang tạo phòng…" else "Đang vào phòng…"
-            client.connect(serverUrl, roomCode, create)
+            status.text = if (makeRoom) "Đang tạo phòng…" else "Đang tham gia phòng…"
+            dot.setTextColor(green)
+            client.connect(server, code, makeRoom)
         }
-        button.setOnClickListener { connectRoom(false) }
-        createRoom.setOnClickListener { connectRoom(true) }
-
+        create.setOnClickListener { connectRoom(true) }
+        join.setOnClickListener { connectRoom(false) }
+        mic.setOnClickListener {
+            val muted = !VoiceControls.microphoneMuted.get(); VoiceControls.microphoneMuted.set(muted)
+            mic.text = if (muted) "🎙  Bật mic" else "🎙  Tắt mic"
+        }
+        speaker.setOnClickListener {
+            val muted = !VoiceControls.speakerMuted.get(); VoiceControls.speakerMuted.set(muted)
+            speaker.text = if (muted) "🔊  Bật loa" else "🔊  Tắt loa"
+        }
         overlay.setOnClickListener {
             if (!android.provider.Settings.canDrawOverlays(this)) {
-                status.text = "Cho phép hiển thị trên ứng dụng khác"
-                val intent = android.content.Intent(
-                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    android.net.Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
+                status.text = "Hãy cấp quyền hiển thị trên ứng dụng khác"
+                startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
             } else {
-                val serviceIntent = android.content.Intent(this, VoiceOverlayService::class.java)
-                if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
+                val i = android.content.Intent(this, VoiceOverlayService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
                 status.text = "Đã bật bong bóng nổi"
             }
         }
-
         stop.setOnClickListener {
-            roomClient?.disconnect()
-            roomClient = null
-            wantConnection = false
-            connectionThread?.interrupt()
-            val current = socket
-            socket = null
-            try { current?.close() } catch (_: Exception) {}
-            VoiceControls.connected.set(false)
-            statusView?.text = "Đã ngắt kết nối"
+            roomClient?.disconnect(); roomClient = null; VoiceControls.connected.set(false)
+            status.text = "Đã ngắt kết nối"; dot.setTextColor(softText)
+        }
+        settings.setOnClickListener {
+            val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20),dp(8),dp(20),dp(8)) }
+            panel.addView(label("Cài đặt thoại", 22f, white, true)); panel.addView(gap(5))
+            panel.addView(label("Tùy chỉnh âm thanh và kết nối", 13f, softText)); panel.addView(gap(14))
+            fun settingSwitch(t: String, value: Boolean, changed: (Boolean) -> Unit) = Switch(this).apply {
+                text = t; setTextColor(white); isChecked = value
+                buttonTintList = android.content.res.ColorStateList.valueOf(green)
+                setOnCheckedChangeListener { _, checked -> changed(checked) }
+            }
+            panel.addView(settingSwitch("Tắt micro", VoiceControls.microphoneMuted.get()) { VoiceControls.microphoneMuted.set(it); mic.text = if (it) "🎙  Bật mic" else "🎙  Tắt mic" })
+            panel.addView(settingSwitch("Tắt loa", VoiceControls.speakerMuted.get()) { VoiceControls.speakerMuted.set(it); speaker.text = if (it) "🔊  Bật loa" else "🔊  Tắt loa" })
+            panel.addView(settingSwitch("Nhấn giữ để nói", VoiceControls.pushToTalk.get()) { VoiceControls.pushToTalk.set(it) })
+            panel.addView(settingSwitch("Tự kết nối lại", VoiceControls.reconnectEnabled.get()) { VoiceControls.reconnectEnabled.set(it) })
+            panel.addView(gap(10)); panel.addView(label("Địa chỉ máy chủ", 13f, softText, true))
+            host.visibility = android.view.View.VISIBLE; panel.addView(host); panel.addView(gap(12))
+            val volLabel = label("Âm lượng loa: \${VoiceControls.speakerVolume.get()}%", 13f, white)
+            val volume = SeekBar(this).apply {
+                max = 100; progress = VoiceControls.speakerVolume.get()
+                progressTintList = android.content.res.ColorStateList.valueOf(green)
+                thumbTintList = android.content.res.ColorStateList.valueOf(green)
+            }
+            panel.addView(volLabel); panel.addView(volume)
+            volume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    VoiceControls.speakerVolume.set(progress); volLabel.text = "Âm lượng loa: " + progress + "%"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+            android.app.AlertDialog.Builder(this).setView(panel)
+                .setPositiveButton("Lưu cài đặt") { _, _ -> prefs.edit().putString("host", host.text.toString().trim()).apply(); status.text = "Đã lưu cài đặt" }
+                .setNegativeButton("Đóng", null).show()
         }
     }
 
