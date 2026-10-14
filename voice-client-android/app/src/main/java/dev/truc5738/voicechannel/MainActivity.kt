@@ -108,7 +108,7 @@ class MainActivity : Activity() {
             visibility = android.view.View.GONE
         }
         val pair = EditText(this).apply {
-            hint = "Nhập mã phòng gồm 6 số"; setSingleLine(true); inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "Danh sách phòng thoại"; setSingleLine(true); inputType = android.text.InputType.TYPE_CLASS_TEXT
             textSize = 22f; gravity = android.view.Gravity.CENTER; letterSpacing = 0.18f
             setTextColor(white); setHintTextColor(softText); setPadding(dp(12), dp(13), dp(12), dp(13))
             background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(14).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
@@ -122,7 +122,7 @@ class MainActivity : Activity() {
         room.addView(statusRow); body.addView(room); body.addView(gap(12))
 
         val create = button("＋   Tạo phòng mới", true)
-        val join = button("Vào phòng bằng mã")
+        val join = button("Tham gia phòng")
         body.addView(create, LinearLayout.LayoutParams(-1, dp(54))); body.addView(gap(8))
         body.addView(join, LinearLayout.LayoutParams(-1, dp(54))); body.addView(gap(14))
 
@@ -145,12 +145,12 @@ class MainActivity : Activity() {
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
 
-        fun connectRoom(makeRoom: Boolean) {
+        fun connectRoom(makeRoom: Boolean, roomId: String? = null, password: String = "", roomName: String = "", listRooms: Boolean = false) {
             val server = host.text.toString().trim().ifBlank { "https://minecraft-pe-voice-room.onrender.com" }
-            val code = pair.text.toString().trim()
-            if (!makeRoom && code.length != 6) { status.text = "Nhập đủ mã phòng gồm 6 số"; return }
             if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100); status.text = "Cấp quyền micro rồi thử lại"; return
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+                status.text = "Cấp quyền micro rồi thử lại"
+                return
             }
             prefs.edit().putString("host", server).apply()
             roomClient?.disconnect()
@@ -159,21 +159,65 @@ class MainActivity : Activity() {
                     statusView?.text = message
                     dot.setTextColor(if (message.contains("kết nối", true) && !message.contains("lỗi", true)) green else softText)
                 } },
-                onRoomCode = { codeNew -> runOnUiThread {
-                    pair.setText(codeNew); pair.setSelection(pair.text.length)
-                    statusView?.text = "Đã tạo phòng • Gửi mã cho bạn bè"
-                    val cb = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    cb.setPrimaryClip(android.content.ClipData.newPlainText("Mã phòng VoiceChannel", codeNew))
-                    Toast.makeText(this, "Đã sao chép mã phòng: " + codeNew, Toast.LENGTH_SHORT).show()
+                onRoomCode = { roomTitle -> runOnUiThread {
+                    statusView?.text = if (makeRoom) "Đã tạo: $roomTitle" else "Đã vào: $roomTitle"
+                    if (makeRoom) Toast.makeText(this, "Phòng đã tạo. Bạn bè có thể tìm trong danh sách.", Toast.LENGTH_LONG).show()
+                } },
+                onRooms = { rooms -> runOnUiThread {
+                    if (listRooms) {
+                        if (rooms.isEmpty()) {
+                            android.app.AlertDialog.Builder(this).setTitle("Chưa có phòng")
+                                .setMessage("Chưa có ai tạo phòng. Hãy tạo phòng mới trước.")
+                                .setPositiveButton("Đóng", null).show()
+                        } else {
+                            val labels = rooms.map { (if (it.locked) "🔒 " else "🌐 ") + it.name + "  •  " + it.members + "/8 người" }.toTypedArray()
+                            android.app.AlertDialog.Builder(this).setTitle("Chọn phòng thoại")
+                                .setItems(labels) { _, which ->
+                                    val selected = rooms[which]
+                                    fun joinRoom(secret: String) { connectRoom(false, selected.id, secret, selected.name) }
+                                    if (selected.locked) {
+                                        val input = EditText(this).apply {
+                                            hint = "Mật khẩu phòng"; setSingleLine(true)
+                                            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                                        }
+                                        android.app.AlertDialog.Builder(this).setTitle(selected.name)
+                                            .setMessage("Nhập mật khẩu do chủ phòng đặt.")
+                                            .setView(input)
+                                            .setPositiveButton("Tham gia") { _, _ -> joinRoom(input.text.toString()) }
+                                            .setNegativeButton("Hủy", null).show()
+                                    } else {
+                                        android.app.AlertDialog.Builder(this).setTitle(selected.name)
+                                            .setMessage("Phòng mở, không cần mật khẩu.")
+                                            .setPositiveButton("Tham gia") { _, _ -> joinRoom("") }
+                                            .setNegativeButton("Hủy", null).show()
+                                    }
+                                }.setNegativeButton("Đóng", null).show()
+                        }
+                    }
                 } }
             )
             roomClient = client
-            status.text = if (makeRoom) "Đang tạo phòng…" else "Đang tham gia phòng…"
+            status.text = if (makeRoom) "Đang tạo phòng…" else if (listRooms) "Đang tải danh sách phòng…" else "Đang tham gia phòng…"
             dot.setTextColor(green)
-            client.connect(server, code, makeRoom)
+            client.connect(server, roomId, password, roomName, makeRoom, listRooms)
         }
-        create.setOnClickListener { connectRoom(true) }
-        join.setOnClickListener { connectRoom(false) }
+        create.setOnClickListener {
+            val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            val nameInput = EditText(this).apply { hint = "Tên phòng"; setSingleLine(true) }
+            val passwordInput = EditText(this).apply {
+                hint = "Mật khẩu (để trống nếu phòng mở)"; setSingleLine(true)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            fields.addView(nameInput); fields.addView(passwordInput)
+            android.app.AlertDialog.Builder(this).setTitle("Tạo phòng thoại")
+                .setMessage("Đặt mật khẩu nếu chỉ muốn bạn bè được phép vào.")
+                .setView(fields)
+                .setPositiveButton("Tạo phòng") { _, _ ->
+                    connectRoom(true, password = passwordInput.text.toString(), roomName = nameInput.text.toString().trim().ifBlank { "Phòng Minecraft" })
+                }
+                .setNegativeButton("Hủy", null).show()
+        }
+        join.setOnClickListener { connectRoom(false, listRooms = true) }
         mic.setOnClickListener {
             val muted = !VoiceControls.microphoneMuted.get(); VoiceControls.microphoneMuted.set(muted)
             mic.text = if (muted) "🎙  Bật mic" else "🎙  Tắt mic"
