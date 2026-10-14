@@ -5,14 +5,6 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
-import android.media.AudioManager
-import android.media.AudioTrack
-import android.media.AudioRecord
-import android.media.AudioFormat
-import android.media.AudioAttributes
-import android.media.MediaRecorder
-import android.media.AudioManager
-import android.os.Build
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -82,12 +74,14 @@ class WebSocketVoiceClient(
                     when (message.optString("type")) {
                         "created" -> {
                             roomReady = true
+                            VoiceControls.connected.set(true)
                             onRoomCode(message.optString("code"))
                             onStatus("Đã tạo phòng. Gửi mã cho bạn bè.")
                             startAudio(webSocket)
                         }
                         "joined" -> {
                             roomReady = true
+                            VoiceControls.connected.set(true)
                             onRoomCode(message.optString("code"))
                             onStatus("Đã vào phòng thoại")
                             startAudio(webSocket)
@@ -117,12 +111,14 @@ class WebSocketVoiceClient(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 roomReady = false
+                VoiceControls.connected.set(false)
                 stopAudio()
                 onStatus("Đã ngắt kết nối")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 roomReady = false
+                VoiceControls.connected.set(false)
                 stopAudio()
                 onStatus("Lỗi kết nối: ${t.message ?: "không rõ nguyên nhân"}")
             }
@@ -207,6 +203,8 @@ class WebSocketVoiceClient(
 
     fun disconnect() {
         roomReady = false
+        VoiceControls.connected.set(false)
+        VoiceControls.pushToTalkPressed.set(false)
         stopAudio()
         socket?.send(JSONObject().put("type", "leave").toString())
         socket?.close(1000, "User disconnected")
