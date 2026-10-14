@@ -38,7 +38,8 @@ This branch adds a floating controller and expands Android controls. It is a wor
 - This is not yet a production-ready, one-tap independent voice app.
 - The new WebSocket relay is not yet integrated with the Android client; the existing Android audio client still speaks the project's TCP gateway protocol.
 - The current overlay service starts a foreground service and draws controls, but the microphone/audio engine still belongs to the activity. Android lifecycle integration must be completed before audio can be claimed to continue reliably after the activity is backgrounded.
-- Push-to-talk currently has a mode toggle but no press-and-hold gesture yet.
+- The overlay now has a press-and-hold-to-talk control when push-to-talk mode is enabled; this needs Android accessibility and device testing.
 - A room relay needs authenticated room ownership, rate limiting, TLS deployment verification, and abuse protections before public use.
+- Fixed the retry loop when auto-reconnect is disabled, and the overlay now refreshes connection status automatically every second.
 - A CI build and physical-device tests are required. Do not distribute as a finished APK until these pass.
 - Android 13+ notification permission and Android 14+ foreground microphone service rules must be tested on device.
