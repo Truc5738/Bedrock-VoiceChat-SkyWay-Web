@@ -189,7 +189,7 @@ class VoiceOverlayService : Service() {
             val next = !VoiceControls.pushToTalk.get()
             VoiceControls.pushToTalk.set(next)
             if (!next) VoiceControls.pushToTalkPressed.set(false)
-            text = if (next) "Tắt chế độ nhấn-để-nói" else "Bật chế độ nhấn-để-nói"
+            ptt.text = if (next) "Tắt chế độ nhấn-để-nói" else "Bật chế độ nhấn-để-nói"
             holdToTalk.isEnabled = next
         }
         val theme = Button(this).apply { text = "Đổi màu bong bóng"; setOnClickListener { themeDark = !themeDark; (root.background as? GradientDrawable)?.setColor(if (themeDark) Color.rgb(45, 45, 55) else Color.rgb(0, 121, 107)); text = if (themeDark) "Dùng màu xanh" else "Dùng màu tối" } }
