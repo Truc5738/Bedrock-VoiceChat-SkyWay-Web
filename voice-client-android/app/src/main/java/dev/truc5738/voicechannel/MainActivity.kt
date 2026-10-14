@@ -19,6 +19,7 @@ class MainActivity : Activity() {
     @Volatile private var wantConnection = false
     @Volatile private var connectionThread: Thread? = null
     @Volatile private var sessionToken: String? = null
+    @Volatile private var roomClient: WebSocketVoiceClient? = null
     private var statusView: TextView? = null
     private val sampleRate = 16000
     private val frameBytes = sampleRate / 50 * 2
@@ -26,6 +27,8 @@ class MainActivity : Activity() {
     private val pongType = 5
 
     override fun onDestroy() {
+        roomClient?.disconnect()
+        roomClient = null
         wantConnection = false
         connectionThread?.interrupt()
         val current = socket
@@ -39,9 +42,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val prefs = getPreferences(Context.MODE_PRIVATE)
         val title = TextView(this).apply { text = "Minecraft VoiceChat"; textSize = 24f }
-        val host = EditText(this).apply { hint = "Địa chỉ máy chủ thoại"; setText(prefs.getString("host", "")) }
-        val port = EditText(this).apply { hint = "Cổng"; setText(prefs.getString("port", "26467")) }
-        val pair = EditText(this).apply { hint = "Mã ghép đôi (6 chữ số)" }
+        val host = EditText(this).apply { hint = "URL máy chủ phòng thoại (https://...)"; setText(prefs.getString("host", "")) }
+        val port = EditText(this).apply { hint = "Cổng TCP cũ (không dùng)"; visibility = android.view.View.GONE }
+        val pair = EditText(this).apply { hint = "Mã phòng (6 chữ số, để trống khi tạo)" }
         val micSwitch = Switch(this).apply { text = "Tắt micro"; isChecked = VoiceControls.microphoneMuted.get() }
         val speakerSwitch = Switch(this).apply { text = "Tắt loa"; isChecked = VoiceControls.speakerMuted.get() }
         val pttSwitch = Switch(this).apply { text = "Nhấn giữ để nói"; isChecked = VoiceControls.pushToTalk.get() }
@@ -52,7 +55,8 @@ class MainActivity : Activity() {
         val help = TextView(this).apply { text = "Kết nối thoại độc lập • Không cần Addon Minecraft"; textSize = 14f }
         val status = TextView(this).apply { text = "Disconnected" }
         statusView = status
-        val button = Button(this).apply { text = "Kết nối" }
+        val button = Button(this).apply { text = "Vào phòng" }
+        val createRoom = Button(this).apply { text = "Tạo phòng mới" }
         val stop = Button(this).apply { text = "Dừng kết nối" }
         val overlay = Button(this).apply { text = "Bật bong bóng nổi" }
         val layout = LinearLayout(this).apply {
@@ -60,7 +64,7 @@ class MainActivity : Activity() {
             setPadding(32,32,32,32)
             addView(title); addView(help)
             addView(host); addView(port); addView(pair)
-            addView(status); addView(button); addView(stop); addView(overlay)
+            addView(status); addView(button); addView(createRoom); addView(stop); addView(overlay)
             addView(micSwitch); addView(speakerSwitch); addView(volumeLabel); addView(volumeSlider); addView(pttSwitch); addView(reconnectSwitch); addView(save)
         }
         setContentView(layout)
@@ -86,87 +90,31 @@ class MainActivity : Activity() {
             status.text = "Đã lưu cấu hình"
         }
 
-        button.setOnClickListener {
-            if (wantConnection) return@setOnClickListener
-            val hostValue = host.text.toString().trim()
-            prefs.edit().putString("host", hostValue).putString("port", port.text.toString().trim()).apply()
-            val portValue = port.text.toString().trim().toIntOrNull() ?: 26467
-            val pairCode = pair.text.toString().trim()
-            if (hostValue.isBlank()) {
-                status.text = "Enter gateway host"
-                return@setOnClickListener
+        fun connectRoom(create: Boolean) {
+            val serverUrl = host.text.toString().trim()
+            val roomCode = pair.text.toString().trim()
+            if (serverUrl.isBlank()) {
+                status.text = "Nhập URL máy chủ phòng thoại"
+                return
             }
-            if (portValue !in 1..65535) {
-                status.text = "Invalid gateway port"
-                return@setOnClickListener
+            if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+                status.text = "Cần cấp quyền micro rồi bấm kết nối lại"
+                return
             }
-            wantConnection = true
-            status.text = "Connecting..."
-            val worker = Thread {
-                var firstConnection = true
-                while (wantConnection) {
-                    try {
-                        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                            runOnUiThread { statusView?.text = "Microphone permission required" }
-                            wantConnection = false
-                            break
-                        }
-
-                        val s = Socket()
-                        s.connect(java.net.InetSocketAddress(hostValue, portValue), 5000)
-                        s.tcpNoDelay = true
-                        s.keepAlive = true
-                        s.soTimeout = 20000
-                        socket = s
-
-                        val usePairing = pairCode.matches(Regex("\\d{6}"))
-                        val credential = if (usePairing) {
-                            "PAIR:" + pairCode
-                        } else {
-                            sessionToken?.let { "SESSION:" + it } ?: "PAIR:" + pairCode
-                        }
-
-                        val connectionRunning = AtomicBoolean(true)
-                        try {
-                            runVoice(s, credential, pair, connectionRunning)
-                        } catch (ex: Exception) {
-                            if (sessionToken != null && ex.message == "SESSION_REJECTED") {
-                                sessionToken = null
-                                getPreferences(Context.MODE_PRIVATE).edit().remove("session_token").apply()
-                                runOnUiThread { statusView?.text = "Session expired - enter pair code" }
-                                wantConnection = false
-                            } else if (ex.message == "Pairing rejected") {
-                                runOnUiThread { statusView?.text = "Pairing rejected - enter a new code" }
-                                wantConnection = false
-                            } else if (wantConnection) {
-                                runOnUiThread { statusView?.text = "Disconnected - retrying" }
-                            }
-                        } finally {
-                            connectionRunning.set(false)
-                            closeSocketIfCurrent(s)
-                        }
-                        if (!wantConnection) break
-                    } catch (_: Exception) {
-                        if (wantConnection) runOnUiThread { statusView?.text = "Disconnected - retrying" }
-                    }
-                    if (wantConnection && VoiceControls.reconnectEnabled.get()) {
-                        try {
-                            Thread.sleep(if (firstConnection) 3000L else 2000L)
-                        } catch (_: InterruptedException) {
-                            break
-                        }
-                    } else if (wantConnection) {
-                        // Do not spin in a tight loop when the user disabled auto-reconnect.
-                        wantConnection = false
-                        break
-                    }
-                    firstConnection = false
-                }
-                if (!wantConnection) runOnUiThread { statusView?.text = "Disconnected" }
-            }.also { it.isDaemon = true }
-            connectionThread = worker
-            worker.start()
+            prefs.edit().putString("host", serverUrl).apply()
+            roomClient?.disconnect()
+            val client = WebSocketVoiceClient(
+                onStatus = { message -> runOnUiThread { statusView?.text = message } },
+                onRoomCode = { code -> runOnUiThread { pair.setText(code) } }
+            )
+            roomClient = client
+            status.text = if (create) "Đang tạo phòng…" else "Đang vào phòng…"
+            client.connect(serverUrl, roomCode, create)
         }
+        button.setOnClickListener { connectRoom(false) }
+        createRoom.setOnClickListener { connectRoom(true) }
 
         overlay.setOnClickListener {
             if (!android.provider.Settings.canDrawOverlays(this)) {
@@ -184,12 +132,15 @@ class MainActivity : Activity() {
         }
 
         stop.setOnClickListener {
+            roomClient?.disconnect()
+            roomClient = null
             wantConnection = false
             connectionThread?.interrupt()
             val current = socket
             socket = null
             try { current?.close() } catch (_: Exception) {}
-            runOnUiThread { statusView?.text = "Disconnected" }
+            VoiceControls.connected.set(false)
+            statusView?.text = "Đã ngắt kết nối"
         }
     }
 
