@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 
 @Suppress("DEPRECATION")
@@ -131,6 +132,19 @@ class VoiceOverlayService : Service() {
                 text = if (next) "Bật loa" else "Tắt loa"
             }
         }
+        val volumeLabel = TextView(this).apply { text = "Âm lượng: ${VoiceControls.speakerVolume.get()}%"; setTextColor(Color.WHITE); textSize = 12f }
+        val volumeSlider = SeekBar(this).apply {
+            max = 100
+            progress = VoiceControls.speakerVolume.get()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    VoiceControls.speakerVolume.set(progress)
+                    volumeLabel.text = "Âm lượng: $progress%"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
         val ptt = Button(this).apply {
             text = if (VoiceControls.pushToTalk.get()) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
             setOnClickListener {
@@ -153,7 +167,7 @@ class VoiceOverlayService : Service() {
         } }
         val hide = Button(this).apply { text = "Thu gọn"; setOnClickListener { toggleControls(root) } }
         val stop = Button(this).apply { text = "Tắt điều khiển nổi"; setOnClickListener { stopSelf() } }
-        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(ptt); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
+        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(volumeLabel); root.addView(volumeSlider); root.addView(ptt); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
