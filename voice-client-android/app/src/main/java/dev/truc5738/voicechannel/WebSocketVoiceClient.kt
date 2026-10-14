@@ -19,9 +19,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * WebSocket transport for the standalone room relay. Audio frames are raw 20 ms
  * PCM chunks (16 kHz, mono, signed 16-bit little-endian), matching the relay.
  */
-class WebSocketVoiceClient(
+data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val locked: Boolean)\n\nclass WebSocketVoiceClient(
     private val onStatus: (String) -> Unit,
-    private val onRoomCode: (String) -> Unit
+    private val onRoomCode: (String) -> Unit,
+    private val onRooms: (List<VoiceRoomInfo>) -> Unit = {}
 ) {
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
@@ -38,7 +39,7 @@ class WebSocketVoiceClient(
     private val sampleRate = 16000
     private val frameBytes = 640
 
-    fun connect(serverUrl: String, roomCode: String?, createRoom: Boolean) {
+    fun connect(serverUrl: String, roomId: String?, password: String?, roomName: String?, createRoom: Boolean, listRooms: Boolean = false) {
         disconnect()
         val normalized = serverUrl.trim().let {
             when {
@@ -71,7 +72,7 @@ class WebSocketVoiceClient(
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val message = JSONObject(text)
-                    when (message.optString("type")) {
+                    when (message.optString("type")) {\n                        "rooms" -> {\n                            val array = message.optJSONArray("rooms")\n                            val list = mutableListOf<VoiceRoomInfo>()\n                            if (array != null) for (i in 0 until array.length()) {\n                                val item = array.optJSONObject(i) ?: continue\n                                list.add(VoiceRoomInfo(item.optString("id"), item.optString("name", "Phòng thoại"), item.optInt("members", 0), item.optBoolean("locked", false)))\n                            }\n                            onRooms(list)\n                            if (listRooms) onStatus(if (list.isEmpty()) "Chưa có phòng nào. Hãy tạo phòng mới." else "Chọn phòng muốn tham gia")\n                        }
                         "created" -> {
                             roomReady = true
                             VoiceControls.connected.set(true)
