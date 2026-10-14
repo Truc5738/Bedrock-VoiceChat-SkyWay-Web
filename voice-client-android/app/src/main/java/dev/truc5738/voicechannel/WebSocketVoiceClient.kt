@@ -19,7 +19,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * WebSocket transport for the standalone room relay. Audio frames are raw 20 ms
  * PCM chunks (16 kHz, mono, signed 16-bit little-endian), matching the relay.
  */
-data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val locked: Boolean)\n\nclass WebSocketVoiceClient(
+data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val locked: Boolean)
+
+class WebSocketVoiceClient(
     private val onStatus: (String) -> Unit,
     private val onRoomCode: (String) -> Unit,
     private val onRooms: (List<VoiceRoomInfo>) -> Unit = {}
@@ -52,10 +54,6 @@ data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val
             onStatus("URL phải bắt đầu bằng https:// hoặc wss://")
             return
         }
-        if (!createRoom && roomCode?.matches(Regex("\\d{6}")) != true) {
-            onStatus("Nhập mã phòng gồm 6 chữ số")
-            return
-        }
         onStatus("Đang kết nối máy chủ phòng thoại…")
         val request = try { Request.Builder().url(normalized).build() } catch (_: Exception) {
             onStatus("URL máy chủ không hợp lệ")
@@ -63,8 +61,11 @@ data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val
         }
         socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                val command = if (createRoom) JSONObject().put("type", "create")
-                    else JSONObject().put("type", "join").put("code", roomCode)
+                val command = when {
+                    listRooms -> JSONObject().put("type", "list_rooms")
+                    createRoom -> JSONObject().put("type", "create").put("name", roomName ?: "Phòng thoại").put("password", password ?: "")
+                    else -> JSONObject().put("type", "join").put("roomId", roomId).put("password", password ?: "")
+                }
                 webSocket.send(command.toString())
                 onStatus("Đã kết nối máy chủ, đang vào phòng…")
             }
@@ -72,18 +73,28 @@ data class VoiceRoomInfo(val id: String, val name: String, val members: Int, val
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val message = JSONObject(text)
-                    when (message.optString("type")) {\n                        "rooms" -> {\n                            val array = message.optJSONArray("rooms")\n                            val list = mutableListOf<VoiceRoomInfo>()\n                            if (array != null) for (i in 0 until array.length()) {\n                                val item = array.optJSONObject(i) ?: continue\n                                list.add(VoiceRoomInfo(item.optString("id"), item.optString("name", "Phòng thoại"), item.optInt("members", 0), item.optBoolean("locked", false)))\n                            }\n                            onRooms(list)\n                            if (listRooms) onStatus(if (list.isEmpty()) "Chưa có phòng nào. Hãy tạo phòng mới." else "Chọn phòng muốn tham gia")\n                        }
+                    when (message.optString("type")) {
+                        "rooms" -> {
+                            val array = message.optJSONArray("rooms")
+                            val list = mutableListOf<VoiceRoomInfo>()
+                            if (array != null) for (i in 0 until array.length()) {
+                                val item = array.optJSONObject(i) ?: continue
+                                list.add(VoiceRoomInfo(item.optString("id"), item.optString("name", "Phòng thoại"), item.optInt("members", 0), item.optBoolean("locked", false)))
+                            }
+                            onRooms(list)
+                            if (listRooms) onStatus(if (list.isEmpty()) "Chưa có phòng nào. Hãy tạo phòng mới." else "Chọn phòng muốn tham gia")
+                        }
                         "created" -> {
                             roomReady = true
                             VoiceControls.connected.set(true)
-                            onRoomCode(message.optString("code"))
-                            onStatus("Đã tạo phòng. Gửi mã cho bạn bè.")
+                            onRoomCode(message.optString("name", "Phòng thoại"))
+                            onStatus("Đã tạo phòng thoại")
                             startAudio(webSocket)
                         }
                         "joined" -> {
                             roomReady = true
                             VoiceControls.connected.set(true)
-                            onRoomCode(message.optString("code"))
+                            onRoomCode(message.optString("name", "Phòng thoại"))
                             onStatus("Đã vào phòng thoại")
                             startAudio(webSocket)
                         }
