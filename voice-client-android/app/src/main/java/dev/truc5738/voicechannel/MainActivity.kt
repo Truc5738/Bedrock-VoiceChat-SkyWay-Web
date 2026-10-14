@@ -95,17 +95,17 @@ class MainActivity : Activity() {
         hero.addView(gap(6))
         hero.addView(label("Chơi cùng nhau.\nNói chuyện tức thì.", 25f, white, true))
         hero.addView(gap(8))
-        hero.addView(label("Không cần addon Minecraft. Dùng mã phòng để trò chuyện.", 13f, softText))
+        hero.addView(label("Không cần addon Minecraft. Máy chủ đã điền sẵn, chỉ cần tạo hoặc chọn phòng.", 13f, softText))
         body.addView(hero); body.addView(gap(16))
 
         val room = card()
         room.addView(label("PHÒNG THOẠI", 12f, softText, true)); room.addView(gap(8))
         val host = EditText(this).apply {
-            hint = "Địa chỉ máy chủ (https://...)"; setSingleLine(true); textSize = 14f
+            hint = "Máy chủ thoại (đã điền sẵn)"; setSingleLine(true); textSize = 14f
             setTextColor(white); setHintTextColor(softText); setPadding(dp(12), dp(12), dp(12), dp(12))
             background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(12).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
             setText(prefs.getString("host", "https://minecraft-pe-voice-room.onrender.com"))
-            visibility = android.view.View.GONE
+            visibility = android.view.View.VISIBLE
         }
         val pair = EditText(this).apply {
             hint = "Danh sách phòng thoại"; setSingleLine(true); inputType = android.text.InputType.TYPE_CLASS_TEXT
@@ -140,7 +140,7 @@ class MainActivity : Activity() {
         body.addView(controls); body.addView(gap(12))
         val stop = button("Ngắt kết nối")
         body.addView(stop, LinearLayout.LayoutParams(-1, dp(48))); body.addView(gap(12))
-        body.addView(label("MẸO  •  Cả hai người dùng cùng máy chủ và mã phòng.", 11f, softText))
+        body.addView(label("MẸO  •  Giữ máy chủ mặc định để kết nối nhanh. Cả hai dùng cùng máy chủ.", 11f, softText))
         scroll.addView(body); root.addView(scroll, LinearLayout.LayoutParams(-1,0,1f)); setContentView(root)
 
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
