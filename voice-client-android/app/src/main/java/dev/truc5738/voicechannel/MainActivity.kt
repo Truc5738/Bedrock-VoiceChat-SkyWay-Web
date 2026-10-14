@@ -113,6 +113,7 @@ class MainActivity : Activity() {
             setTextColor(white); setHintTextColor(softText); setPadding(dp(12), dp(13), dp(12), dp(13))
             background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(14).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
         }
+        pair.visibility = android.view.View.GONE
         room.addView(host); room.addView(pair); room.addView(gap(12))
         val statusRow = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
         val dot = label("●", 12f, softText)
