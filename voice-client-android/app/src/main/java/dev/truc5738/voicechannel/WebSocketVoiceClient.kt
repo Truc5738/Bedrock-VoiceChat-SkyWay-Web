@@ -41,6 +41,8 @@ class WebSocketVoiceClient(
     private val sampleRate = 16000
     private val frameBytes = 640
 
+    fun connect(serverUrl: String, roomCode: String?, createRoom: Boolean) = connect(serverUrl, null, "", "Phòng thoại", createRoom, !createRoom)
+
     fun connect(serverUrl: String, roomId: String?, password: String?, roomName: String?, createRoom: Boolean, listRooms: Boolean = false) {
         disconnect()
         val normalized = serverUrl.trim().let {
