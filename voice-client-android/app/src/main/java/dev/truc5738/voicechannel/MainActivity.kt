@@ -37,29 +37,49 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val host = EditText(this).apply { hint = "Gateway host" }
-        val port = EditText(this).apply { hint = "26467"; setText("26467") }
-        val pair = EditText(this).apply { hint = "Pair code (6 digits)" }
+        val prefs = getPreferences(Context.MODE_PRIVATE)
+        val title = TextView(this).apply { text = "Minecraft VoiceChat"; textSize = 24f }
+        val host = EditText(this).apply { hint = "Địa chỉ máy chủ thoại"; setText(prefs.getString("host", "")) }
+        val port = EditText(this).apply { hint = "Cổng"; setText(prefs.getString("port", "26467")) }
+        val pair = EditText(this).apply { hint = "Mã ghép đôi (6 chữ số)" }
+        val micSwitch = Switch(this).apply { text = "Tắt micro"; isChecked = VoiceControls.microphoneMuted.get() }
+        val speakerSwitch = Switch(this).apply { text = "Tắt loa"; isChecked = VoiceControls.speakerMuted.get() }
+        val pttSwitch = Switch(this).apply { text = "Nhấn giữ để nói"; isChecked = VoiceControls.pushToTalk.get() }
+        val reconnectSwitch = Switch(this).apply { text = "Tự kết nối lại"; isChecked = VoiceControls.reconnectEnabled.get() }
+        val save = Button(this).apply { text = "Lưu địa chỉ" }
+        val help = TextView(this).apply { text = "Kết nối thoại độc lập • Không cần Addon Minecraft"; textSize = 14f }
         val status = TextView(this).apply { text = "Disconnected" }
         statusView = status
-        val button = Button(this).apply { text = "Connect" }
+        val button = Button(this).apply { text = "Kết nối" }
         val stop = Button(this).apply { text = "Dừng kết nối" }
         val overlay = Button(this).apply { text = "Bật bong bóng nổi" }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32,32,32,32)
+            addView(title); addView(help)
             addView(host); addView(port); addView(pair)
             addView(status); addView(button); addView(stop); addView(overlay)
+            addView(micSwitch); addView(speakerSwitch); addView(pttSwitch); addView(reconnectSwitch); addView(save)
         }
         setContentView(layout)
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
         }
-        sessionToken = getPreferences(Context.MODE_PRIVATE).getString("session_token", null)
+        sessionToken = prefs.getString("session_token", null)
+        micSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.microphoneMuted.set(checked) }
+        speakerSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.speakerMuted.set(checked) }
+        pttSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.pushToTalk.set(checked) }
+        reconnectSwitch.setOnCheckedChangeListener { _, checked -> VoiceControls.reconnectEnabled.set(checked) }
+        save.setOnClickListener {
+            prefs.edit().putString("host", host.text.toString().trim())
+                .putString("port", port.text.toString().trim()).apply()
+            status.text = "Đã lưu cấu hình"
+        }
 
         button.setOnClickListener {
             if (wantConnection) return@setOnClickListener
             val hostValue = host.text.toString().trim()
+            prefs.edit().putString("host", hostValue).putString("port", port.text.toString().trim()).apply()
             val portValue = port.text.toString().trim().toIntOrNull() ?: 26467
             val pairCode = pair.text.toString().trim()
             if (hostValue.isBlank()) {
@@ -119,7 +139,7 @@ class MainActivity : Activity() {
                     } catch (_: Exception) {
                         if (wantConnection) runOnUiThread { statusView?.text = "Disconnected - retrying" }
                     }
-                    if (wantConnection) {
+                    if (wantConnection && VoiceControls.reconnectEnabled.get()) {
                         try {
                             Thread.sleep(if (firstConnection) 3000L else 2000L)
                         } catch (_: InterruptedException) {
@@ -194,7 +214,8 @@ class MainActivity : Activity() {
                 if (token.startsWith("PAIR:")) runOnUiThread { pair.setText("") }
             }
         id = UUID(assignedMsb, assignedLsb)
-        runOnUiThread { statusView?.text = "Connected" }
+        VoiceControls.connected.set(true)
+        runOnUiThread { statusView?.text = "Đã kết nối" }
 
         val min = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (min <= 0) throw IOException("Microphone is not available")
@@ -220,6 +241,7 @@ class MainActivity : Activity() {
                 if (track.state != AudioTrack.STATE_INITIALIZED) throw IOException("Speaker initialization failed")
                 track.play()
                 while (connectionRunning.get()) {
+                    track.setVolume(if (VoiceControls.speakerMuted.get()) 0f else 1f)
                     val header = ByteArray(29)
                     readFully(input, header)
                     val hb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
@@ -279,10 +301,16 @@ class MainActivity : Activity() {
                     }
                     off += n
                 }
-                if (off == frame.size && connectionRunning.get()) send(output, 2, id, seq++, frame)
+                if (off == frame.size && connectionRunning.get()) {
+                    val shouldTransmit = !VoiceControls.microphoneMuted.get() &&
+                        (!VoiceControls.pushToTalk.get() || VoiceControls.pushToTalkPressed.get())
+                    if (shouldTransmit) send(output, 2, id, seq++, frame)
+                    else send(output, 2, id, seq++, ByteArray(frameBytes))
+                }
             }
         } finally {
             connectionRunning.set(false)
+            VoiceControls.connected.set(false)
             try { recorder.stop() } catch (_: Exception) {}
             try { recorder.release() } catch (_: Exception) {}
             try { send(output, 3, id, 0, ByteArray(0)) } catch (_: Exception) {}
