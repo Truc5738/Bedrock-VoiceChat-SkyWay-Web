@@ -36,10 +36,10 @@ This branch adds a floating controller and expands Android controls. It is a wor
 
 ## Important engineering status
 - This is not yet a production-ready, one-tap independent voice app.
-- The new WebSocket relay is not yet integrated with the Android client; the existing Android audio client still speaks the project's TCP gateway protocol.
-- The current overlay service starts a foreground service and draws controls, but the microphone/audio engine still belongs to the activity. Android lifecycle integration must be completed before audio can be claimed to continue reliably after the activity is backgrounded.
+- The Android client now includes a WebSocket room client and the main screen offers create-room and join-room actions. The legacy TCP client code remains in the source for compatibility, but the visible connection flow uses WebSocket rooms.
+- The overlay service starts a foreground service and draws controls, but the WebSocket microphone/audio engine is still owned by the activity-side client. Android lifecycle integration must be completed before audio can be claimed to continue reliably after the activity is destroyed.
 - The overlay now has a press-and-hold-to-talk control when push-to-talk mode is enabled; this needs Android accessibility and device testing.
-- A room relay needs authenticated room ownership, rate limiting, TLS deployment verification, and abuse protections before public use.
+- The room relay still needs authenticated room ownership, rate limiting, TLS deployment verification, and abuse protections before public use.
 - Fixed the retry loop when auto-reconnect is disabled, and the overlay now refreshes connection status automatically every second.
-- A CI build and physical-device tests are required. Do not distribute as a finished APK until these pass.
+- The current WebSocket integration has not yet been confirmed by a completed CI build or physical-device tests. The overlay is still a controller only: the WebSocket audio engine is not owned by the foreground service, so reliable audio after Android destroys the activity is not guaranteed. Do not distribute as a finished APK until these pass.
 - Android 13+ notification permission and Android 14+ foreground microphone service rules must be tested on device.
