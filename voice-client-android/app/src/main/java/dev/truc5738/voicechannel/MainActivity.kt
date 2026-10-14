@@ -210,7 +210,13 @@ class MainActivity : Activity() {
             panel.addView(settingSwitch("Nhấn giữ để nói", VoiceControls.pushToTalk.get()) { VoiceControls.pushToTalk.set(it) })
             panel.addView(settingSwitch("Tự kết nối lại", VoiceControls.reconnectEnabled.get()) { VoiceControls.reconnectEnabled.set(it) })
             panel.addView(gap(10)); panel.addView(label("Địa chỉ máy chủ", 13f, softText, true))
-            host.visibility = android.view.View.VISIBLE; panel.addView(host); panel.addView(gap(12))
+            val settingsHost = EditText(this).apply {
+                hint = "https://địa-chỉ-máy-chủ"; setSingleLine(true); textSize = 14f
+                setTextColor(white); setHintTextColor(softText); setText(host.text.toString())
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = android.graphics.drawable.GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(12).toFloat(); setStroke(dp(1), android.graphics.Color.rgb(58,81,66)) }
+            }
+            panel.addView(settingsHost); panel.addView(gap(12))
             val volLabel = label("Âm lượng loa: \${VoiceControls.speakerVolume.get()}%", 13f, white)
             val volume = SeekBar(this).apply {
                 max = 100; progress = VoiceControls.speakerVolume.get()
@@ -226,7 +232,7 @@ class MainActivity : Activity() {
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {}
             })
             android.app.AlertDialog.Builder(this).setView(panel)
-                .setPositiveButton("Lưu cài đặt") { _, _ -> prefs.edit().putString("host", host.text.toString().trim()).apply(); status.text = "Đã lưu cài đặt" }
+                .setPositiveButton("Lưu cài đặt") { _, _ -> host.setText(settingsHost.text.toString().trim()); prefs.edit().putString("host", settingsHost.text.toString().trim()).apply(); status.text = "Đã lưu cài đặt" }
                 .setNegativeButton("Đóng", null).show()
         }
     }
