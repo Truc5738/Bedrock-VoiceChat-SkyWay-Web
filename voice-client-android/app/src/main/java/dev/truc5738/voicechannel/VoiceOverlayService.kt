@@ -231,10 +231,6 @@ class VoiceOverlayService : Service() {
                 setStroke(dp(1), if (themeDark) Color.rgb(64,104,76) else Color.rgb(119,158,126))
                 cornerRadius = dp(17).toFloat()
             }
-            icon.background = GradientDrawable().apply {
-                setColor(if (themeDark) Color.rgb(34, 71, 47) else Color.rgb(70, 112, 78))
-                shape = GradientDrawable.OVAL
-            }
             theme.text = if (themeDark) "☀ Sáng" else "☾ Tối"
         }
         extras.addView(dock, LinearLayout.LayoutParams(0, dp(38), 1f))
