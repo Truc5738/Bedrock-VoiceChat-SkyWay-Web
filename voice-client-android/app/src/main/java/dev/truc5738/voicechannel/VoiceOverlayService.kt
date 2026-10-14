@@ -7,6 +7,8 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -23,6 +25,13 @@ class VoiceOverlayService : Service() {
     private var params: WindowManager.LayoutParams? = null
     private var statusLabel: TextView? = null
     private var themeDark = false
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val statusTicker = object : Runnable {
+        override fun run() {
+            statusLabel?.text = if (VoiceControls.connected.get()) "● Đã kết nối" else "○ Chưa kết nối"
+            uiHandler.postDelayed(this, 1000L)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -149,14 +158,40 @@ class VoiceOverlayService : Service() {
             })
         }
         val ptt = Button(this).apply {
-            text = if (VoiceControls.pushToTalk.get()) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
+            text = if (VoiceControls.pushToTalk.get()) "Tắt chế độ nhấn-để-nói" else "Bật chế độ nhấn-để-nói"
             setOnClickListener {
                 val next = !VoiceControls.pushToTalk.get()
                 VoiceControls.pushToTalk.set(next)
-                text = if (next) "Tắt nhấn-để-nói" else "Bật nhấn-để-nói"
+                if (!next) VoiceControls.pushToTalkPressed.set(false)
+                text = if (next) "Tắt chế độ nhấn-để-nói" else "Bật chế độ nhấn-để-nói"
             }
         }
-        val refresh = Button(this).apply { text = "Làm mới trạng thái"; setOnClickListener { statusLabel?.text = if (VoiceControls.connected.get()) "● Đã kết nối" else "○ Chưa kết nối" } }
+        val holdToTalk = Button(this).apply {
+            text = "Giữ nút này để nói"
+            isEnabled = VoiceControls.pushToTalk.get()
+            setOnTouchListener { view, event ->
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        if (VoiceControls.pushToTalk.get()) VoiceControls.pushToTalkPressed.set(true)
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        VoiceControls.pushToTalkPressed.set(false)
+                        view.performClick()
+                        true
+                    }
+                    else -> true
+                }
+            }
+            setOnClickListener { /* Accessibility click; voice is controlled by press state. */ }
+        }
+        ptt.setOnClickListener {
+            val next = !VoiceControls.pushToTalk.get()
+            VoiceControls.pushToTalk.set(next)
+            if (!next) VoiceControls.pushToTalkPressed.set(false)
+            text = if (next) "Tắt chế độ nhấn-để-nói" else "Bật chế độ nhấn-để-nói"
+            holdToTalk.isEnabled = next
+        }
         val theme = Button(this).apply { text = "Đổi màu bong bóng"; setOnClickListener { themeDark = !themeDark; (root.background as? GradientDrawable)?.setColor(if (themeDark) Color.rgb(45, 45, 55) else Color.rgb(0, 121, 107)); text = if (themeDark) "Dùng màu xanh" else "Dùng màu tối" } }
         val reconnect = Button(this).apply {
             text = if (VoiceControls.reconnectEnabled.get()) "Tắt tự kết nối lại" else "Bật tự kết nối lại"
@@ -172,7 +207,9 @@ class VoiceOverlayService : Service() {
         } }
         val hide = Button(this).apply { text = "Thu gọn"; setOnClickListener { toggleControls(root) } }
         val stop = Button(this).apply { text = "Tắt điều khiển nổi"; setOnClickListener { stopSelf() } }
-        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(volumeLabel); root.addView(volumeSlider); root.addView(ptt); root.addView(refresh); root.addView(theme); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
+        root.addView(state); root.addView(mic); root.addView(speaker); root.addView(volumeLabel); root.addView(volumeSlider); root.addView(ptt); root.addView(holdToTalk); root.addView(theme); root.addView(reconnect); root.addView(open); root.addView(hide); root.addView(stop)
+        uiHandler.removeCallbacks(statusTicker)
+        uiHandler.post(statusTicker)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -181,6 +218,8 @@ class VoiceOverlayService : Service() {
     }
 
     override fun onDestroy() {
+        uiHandler.removeCallbacks(statusTicker)
+        VoiceControls.pushToTalkPressed.set(false)
         bubble?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
         bubble = null
         super.onDestroy()
