@@ -94,13 +94,17 @@ class VoiceOverlayService : Service() {
         }
         val state = TextView(this).apply { text = "●"; textSize = 12f; setTextColor(mutedText); gravity = Gravity.CENTER; setPadding(dp(6), 0, dp(4), 0) }
         statusLabel = state
-        header.addView(icon); header.addView(name); header.addView(state); root.addView(header)
-        header.setOnClickListener { toggleControls(root) }
+        val close = TextView(this).apply {
+            text = "×"; textSize = 25f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+            setPadding(dp(8), 0, dp(3), 0); contentDescription = "Đóng bong bóng"
+            setOnClickListener { stopSelf() }
+        }
+        header.addView(icon); header.addView(name, LinearLayout.LayoutParams(0, -2, 1f)); header.addView(state); header.addView(close, LinearLayout.LayoutParams(dp(34), dp(38))); root.addView(header)
         val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
         val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.START; x = dp(12); y = dp(170) }
-        root.setOnTouchListener(object : android.view.View.OnTouchListener {
+        header.setOnTouchListener(object : android.view.View.OnTouchListener {
             private var downX = 0f; private var downY = 0f; private var startX = 0; private var startY = 0; private var moved = false
             override fun onTouch(v: android.view.View, event: android.view.MotionEvent): Boolean {
                 when (event.action) {
@@ -108,7 +112,8 @@ class VoiceOverlayService : Service() {
                     android.view.MotionEvent.ACTION_MOVE -> {
                         val dx = (event.rawX - downX).toInt(); val dy = (event.rawY - downY).toInt()
                         if (kotlin.math.abs(dx) > dp(5) || kotlin.math.abs(dy) > dp(5)) moved = true
-                        lp.x = startX + dx; lp.y = startY + dy
+                        lp.x = (startX + dx).coerceAtLeast(0)
+                        lp.y = (startY + dy).coerceAtLeast(0)
                         try { windowManager?.updateViewLayout(root, lp) } catch (_: Exception) {}
                         return true
                     }
