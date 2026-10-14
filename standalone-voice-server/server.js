@@ -10,6 +10,9 @@ const rooms = new Map();
 function roomCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
 }
+function publicRooms() {
+  return [...rooms.entries()].map(([id, room]) => ({ id, name: room.name, members: room.size, locked: Boolean(room.passwordHash) }));
+}
 function send(ws, value) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value));
 }
@@ -20,6 +23,7 @@ function leave(ws) {
     room.delete(ws);
     for (const peer of room) send(peer, { type: "peer_left" });
     if (room.size === 0) rooms.delete(ws.room);
+    else for (const peer of room) send(peer, { type: "rooms", rooms: publicRooms() });
   }
   ws.room = null;
 }
