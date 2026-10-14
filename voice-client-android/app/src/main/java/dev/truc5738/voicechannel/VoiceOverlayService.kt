@@ -14,6 +14,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 
+@Suppress("DEPRECATION")
 class VoiceOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var bubble: LinearLayout? = null
@@ -64,7 +65,7 @@ class VoiceOverlayService : Service() {
         }
         root.addView(title)
         title.setOnClickListener { toggleControls(root) }
-        val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
