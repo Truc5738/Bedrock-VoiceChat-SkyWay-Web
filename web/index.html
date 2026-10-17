@@ -6,24 +6,28 @@
   <meta name="theme-color" content="#101713">
   <title>Bedrock Voice — SkyWay</title>
   <style>
-    :root{color-scheme:dark;--bg:#0b100d;--panel:#141d17;--panel2:#1b2920;--line:#2b4032;--text:#eef8f0;--muted:#a4b8a8;--green:#8bf0ad;--red:#ff8d8d}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1b3524 0,#0b100d 58%);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
-    .wrap{width:min(760px,100%);margin:auto;padding:24px 16px 48px}.brand{display:flex;align-items:center;gap:13px;margin:12px 0 28px}.logo{width:48px;height:48px;border-radius:15px;background:var(--green);color:#102016;display:grid;place-items:center;font-size:25px;font-weight:900}.brand h1{font-size:22px;line-height:1.15;margin:0}.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
-    .panel{background:rgba(20,29,23,.96);border:1px solid var(--line);border-radius:22px;padding:20px;margin:14px 0;box-shadow:0 16px 48px #0002}.eyebrow{font-size:11px;letter-spacing:.14em;color:var(--green);font-weight:800}.panel h2{font-size:19px;margin:4px 0 16px}label{display:block;font-size:13px;color:var(--muted);margin:13px 0 6px}input{width:100%;background:#0d1510;color:var(--text);border:1px solid #38513f;border-radius:12px;padding:13px 14px;font:inherit;outline:none}input:focus{border-color:var(--green)}.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}button{border:0;border-radius:13px;padding:13px 15px;font:inherit;font-weight:750;cursor:pointer;background:var(--green);color:#102016;min-height:48px}button.secondary{background:var(--panel2);border:1px solid var(--line);color:var(--text)}button.danger{background:#482222;color:#ffdede}button:disabled{opacity:.45;cursor:not-allowed}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.status{display:flex;align-items:center;gap:9px;padding:12px;border-radius:12px;background:#0d1510;color:var(--muted);font-size:14px;margin-top:14px}.dot{width:9px;height:9px;border-radius:100%;background:#77877a;flex:none}.dot.live{background:var(--green);box-shadow:0 0 12px #8bf0ad99}.people{display:grid;gap:8px}.person{display:flex;align-items:center;gap:10px;background:#0d1510;border:1px solid #23372a;border-radius:12px;padding:11px 12px}.avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#284431;color:var(--green);font-weight:800}.person small{display:block;color:var(--muted)}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #38513f;border-radius:12px}.note{color:var(--muted);font-size:13px}.warning{border-left:3px solid #e8c46c;padding:10px 12px;background:#282416;border-radius:0 10px 10px 0;color:#f5e7bd;font-size:13px}.footer{text-align:center;color:#758b7a;font-size:12px;margin-top:22px}audio{width:100%;margin-top:8px}
-    @media(max-width:480px){.panel{padding:16px}.row{flex-direction:column}.actions{grid-template-columns:1fr 1fr}.brand h1{font-size:20px}}
+    :root{color-scheme:dark;--panel:#111a15;--line:#2b4234;--text:#f1fbf4;--muted:#9bb2a1;--green:#9af5b7;--gold:#f2d48a}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -10%,#245638 0,#101c14 36%,#080d0b 72%);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+    .wrap{width:min(720px,100%);margin:auto;padding:26px 16px 44px}.brand{display:flex;align-items:center;gap:14px;margin:4px 0 24px}.logo{width:54px;height:54px;border-radius:18px;background:linear-gradient(145deg,#b4ffca,#4ad77c);color:#092113;display:grid;place-items:center;font-size:27px;font-weight:950;box-shadow:0 8px 30px #4ad77c30}.brand h1{font-size:24px;line-height:1.15;margin:0;letter-spacing:-.04em}.brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
+    .hero{padding:22px 20px 20px;background:linear-gradient(145deg,#182b20,#101812 72%);border:1px solid #355640;border-radius:26px;box-shadow:0 22px 70px #0005}.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--green);font-weight:850}.hero h2{font-size:25px;letter-spacing:-.04em;line-height:1.2;margin:7px 0 8px}.hero-copy{margin:0 0 18px;color:var(--muted);font-size:14px}.panel{background:rgba(17,26,21,.94);border:1px solid var(--line);border-radius:22px;padding:19px;margin:14px 0;box-shadow:0 16px 48px #0002}.panel h2{font-size:18px;margin:4px 0 15px}label{display:block;font-size:13px;color:var(--muted);margin:13px 0 6px}input{width:100%;background:#0a120d;color:var(--text);border:1px solid #35513e;border-radius:13px;padding:14px;font:inherit;outline:none}input:focus{border-color:var(--green);box-shadow:0 0 0 3px #8bf0ad16}.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}button{border:0;border-radius:14px;padding:13px 15px;font:inherit;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#b1ffca,#6ce995);color:#0a2112;min-height:49px}button:active{transform:scale(.985)}button.secondary{background:#1b2a20;border:1px solid #35513e;color:var(--text)}button:disabled{opacity:.42;cursor:not-allowed}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.status{display:flex;align-items:center;gap:9px;padding:12px 13px;border-radius:13px;background:#0a120d;border:1px solid #263a2c;color:var(--muted);font-size:13px;margin-top:14px}.dot{width:9px;height:9px;border-radius:100%;background:#77877a;flex:none}.dot.live{background:var(--green);box-shadow:0 0 12px #8bf0ad99}.people{display:grid;gap:8px}.person{display:flex;align-items:center;gap:10px;background:#0a120d;border:1px solid #263a2c;border-radius:13px;padding:11px 12px}.avatar{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:#244632;color:var(--green);font-weight:850}.person small{display:block;color:var(--muted)}.empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed #35513e;border-radius:14px}.note{color:var(--muted);font-size:13px}.warning{border-left:3px solid var(--gold);padding:12px;background:#282416;border-radius:0 12px 12px 0;color:#f5e7bd;font-size:13px}.footer{text-align:center;color:#718879;font-size:12px;margin-top:24px}audio{width:100%;margin-top:8px}.room-code{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#09120c;border:1px solid #35513e;border-radius:15px;padding:12px 14px;margin:15px 0}.room-code small{display:block;color:var(--muted);font-size:12px}.room-code strong{display:block;font-size:28px;letter-spacing:.2em;line-height:1.2;color:var(--green)}.room-code button{min-height:40px;padding:9px 12px}
+    @media(max-width:480px){.wrap{padding:20px 13px 36px}.hero{padding:19px 16px}.hero h2{font-size:23px}.panel{padding:16px}.row{flex-direction:column}.actions{grid-template-columns:1fr 1fr}.brand h1{font-size:21px}.room-code strong{font-size:25px}}
   </style>
 </head>
 <body>
   <main class="wrap">
     <header class="brand"><div class="logo">B</div><div><h1>Bedrock Voice</h1><p>Voice rooms for Minecraft · Powered by SkyWay</p></div></header>
-    <section class="panel">
-      <div class="eyebrow">VOICE ROOM</div><h2>Kết nối với bạn bè</h2>
-      <label for="room">Mã phòng (tự tạo ngẫu nhiên)</label><div class="row"><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" value="" autocomplete="off" placeholder="Mã 4 chữ số" readonly><button id="copyRoom" type="button" class="secondary" style="flex:0 0 auto">📋 Sao chép</button></div>
-      <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Tên của bạn">
-      <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán token có quyền join/publish/subscribe"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
-      <p class="note">Token chỉ được giữ trong bộ nhớ của trang khi đang mở; không lưu vào GitHub hoặc local storage.</p>
-      <div class="actions"><button id="join">Tham gia phòng</button><button id="leave" class="secondary" disabled>Rời phòng</button></div>
-      <div class="status" role="status" aria-live="polite"><span id="dot" class="dot"></span><span id="status">Chưa kết nối. Nhập token rồi tham gia phòng.</span></div>
+    <section class="hero">
+      <div class="eyebrow">MINECRAFT BEDROCK · VOICE CHAT</div>
+      <h2>Nói chuyện cùng đồng đội</h2>
+      <p class="hero-copy">Tạo phòng để nhận mã ngẫu nhiên 4 chữ số, hoặc nhập mã bạn bè gửi để tham gia.</p>
+      <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Ví dụ: Steve">
+      <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán Auth Token của bạn"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
+      <p class="note">Token chỉ dùng trong phiên đang mở, không được lưu vào GitHub hay local storage.</p>
+      <div class="actions"><button id="createRoom" type="button">＋ Tạo phòng mới</button><button id="join">Vào phòng bằng mã</button></div>
+      <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
+      <div class="room-code"><div><small>MÃ PHÒNG HIỆN TẠI</small><strong id="currentCode">----</strong></div><button id="copyRoom" type="button" class="secondary">Sao chép</button></div>
+      <button id="leave" class="secondary" disabled style="width:100%">Rời phòng</button>
+      <div class="status" role="status" aria-live="polite"><span id="dot" class="dot"></span><span id="status">Dán token rồi tạo phòng hoặc nhập mã bạn bè.</span></div>
     </section>
     <section class="panel">
       <div class="eyebrow">ROOM MEMBERS</div><h2>Người trong phòng <span id="count" class="note">(0)</span></h2>
@@ -47,14 +51,14 @@
   (() => {
     const $ = (id) => document.getElementById(id);
     const roomInput = $('room'), nickInput = $('nickname'), tokenInput = $('token');
-    const joinBtn = $('join'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
-    const copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt');
+    const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
+    const copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
     try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
-    function randomRoomCode() { const values = new Uint32Array(1); if (window.crypto && window.crypto.getRandomValues) { window.crypto.getRandomValues(values); return String(1000 + (values[0] % 9000)); } return String(Math.floor(1000 + Math.random() * 9000)); }
-    roomInput.value = randomRoomCode();
+    function randomRoomCode() { const values = new Uint32Array(1); if (window.crypto && window.crypto.getRandomValues) { window.crypto.getRandomValues(values); return String(values[0] % 10000).padStart(4,'0'); } return String(Math.floor(Math.random() * 10000)).padStart(4,'0'); }
+    roomInput.addEventListener('input',()=>{roomInput.value=roomInput.value.replace(/[^0-9]/g,'').slice(0,4);});
     const subscriptions = new Map(), audioElements = new Map(), memberNames = new Map();
 
     function status(message, live=false) { statusEl.textContent = message; dot.classList.toggle('live', live); }
@@ -84,13 +88,13 @@
         try { await audio.play(); } catch (_) { status('Đã kết nối. Chạm vào trang nếu trình duyệt chặn phát âm thanh.', true); }
       } catch (error) { console.error(error); status('Không thể nhận âm thanh: ' + (error?.message || error)); }
     }
-    async function join() {
+    async function join(generatedRoomName=null) {
       if (busy || room) return;
       try { localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
-      const roomName=roomInput.value.trim(), token=tokenInput.value.trim();
+      const roomName=(generatedRoomName || roomInput.value).trim(), token=tokenInput.value.trim();
       if (!/^[0-9]{4}$/.test(roomName)) { status('Mã phòng phải gồm đúng 4 chữ số.'); return; }
       if (!roomName || !token) { status('Thiếu mã phòng hoặc SkyWay Auth Token.'); return; }
-      busy=true; joinBtn.disabled=true; status('Đang xin quyền micro và kết nối…');
+      busy=true; joinBtn.disabled=true; createRoomBtn.disabled=true; status(generatedRoomName?'Đang tạo phòng mới…':'Đang kết nối vào phòng…');
       try {
         const sdk=window.skyway_room;
         if (!sdk) throw new Error('Không tải được SkyWay SDK. Kiểm tra kết nối Internet.');
@@ -110,14 +114,15 @@
         room.onMemberJoined.add(()=>renderPeople());
         room.onMemberLeft.add(()=>renderPeople());
         leaveBtn.disabled=false; micBtn.disabled=false; pttBtn.disabled=false; micBtn.textContent='🎙 Bật mic';
-        status('Đã vào phòng "'+roomName+'". Micro mặc định đang tắt để bảo vệ riêng tư.',true); renderPeople();
+        roomInput.value=roomName; currentCodeEl.textContent=roomName;
+        status((generatedRoomName?'Đã tạo phòng mới: ':'Đã vào phòng: ')+roomName+'. Micro đang tắt.',true); renderPeople();
         tokenInput.value='';
       } catch(error) {
         console.error(error); status('Kết nối thất bại: '+(error?.message || String(error)));
         if(room) { try { await room.dispose(); } catch(_){} }
         if(context) { try { context.dispose(); } catch(_){} }
         room=null; context=null; me=null;
-      } finally { busy=false; joinBtn.disabled=!!room; }
+      } finally { busy=false; joinBtn.disabled=!!room; createRoomBtn.disabled=!!room; }
     }
     async function leave() {
       leaveBtn.disabled=true; micBtn.disabled=true; pttBtn.disabled=true; pttActive=false; pttBtn.textContent='🎧 Giữ để nói';
@@ -127,7 +132,7 @@
       try { if(localAudio && localAudio.stop) localAudio.stop(); } catch(_){}
       audioElements.forEach(audio=>audio.remove()); audioElements.clear(); subscriptions.clear(); memberNames.clear();
       room=null; context=null; me=null; localAudio=null; audioPublication=null; muted=false;
-      joinBtn.disabled=false; micBtn.textContent='🎙 Bật mic'; pttBtn.disabled=true; pttBtn.textContent='🎧 Giữ để nói'; peopleEl.innerHTML='<div class="empty">Chưa có kết nối nào.</div>'; countEl.textContent='(0)';
+      joinBtn.disabled=false; createRoomBtn.disabled=false; micBtn.textContent='🎙 Bật mic'; pttBtn.disabled=true; pttBtn.textContent='🎧 Giữ để nói'; peopleEl.innerHTML='<div class="empty">Chưa có kết nối nào.</div>'; countEl.textContent='(0)'; currentCodeEl.textContent='----';
       status('Đã rời phòng.'); 
     }
     async function toggleMic() {
@@ -137,12 +142,13 @@
         else { await audioPublication.enable(); muted=false; micBtn.textContent='🎙 Tắt mic'; status('Micro đang bật.',true); }
       } catch(error) { status('Không đổi được trạng thái micro: '+(error?.message || error)); }
     }
-    copyRoomBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(roomInput.value.trim());status('Đã sao chép mã phòng.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
+    createRoomBtn.addEventListener('click',()=>{if(busy||room)return;const code=randomRoomCode();roomInput.value=code;currentCodeEl.textContent=code;join(code);});
+    copyRoomBtn.addEventListener('click',async()=>{const code=currentCodeEl.textContent==='----'?roomInput.value.trim():currentCodeEl.textContent;if(!/^[0-9]{4}$/.test(code)){status('Chưa có mã phòng để sao chép.');return;}try{await navigator.clipboard.writeText(code);status('Đã sao chép mã phòng '+code+'.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
     showTokenBtn.addEventListener('click',()=>{const visible=tokenInput.type==='password';tokenInput.type=visible?'text':'password';showTokenBtn.textContent=visible?'Ẩn':'Hiện';});
     async function pushToTalkStart(event){if(event&&event.cancelable)event.preventDefault();if(!audioPublication||pttActive)return;pttActive=true;pttWasMuted=muted;try{if(muted){await audioPublication.enable();muted=false;micBtn.textContent='🎙 Tắt mic';}pttBtn.textContent='🟢 Đang nói… thả để tắt';pttBtn.classList.remove('secondary')}catch(error){pttActive=false;status('Không bật được micro: '+(error?.message||error));}}
     async function pushToTalkEnd(){if(!pttActive)return;pttActive=false;try{if(pttWasMuted&&audioPublication){await audioPublication.disable();muted=true;micBtn.textContent='🎙 Bật mic';}}catch(error){status('Không tắt được micro: '+(error?.message||error));}pttBtn.textContent='🎧 Giữ để nói';pttBtn.classList.add('secondary');}
     pttBtn.addEventListener('pointerdown',pushToTalkStart);pttBtn.addEventListener('pointerup',pushToTalkEnd);pttBtn.addEventListener('pointercancel',pushToTalkEnd);pttBtn.addEventListener('lostpointercapture',pushToTalkEnd);window.addEventListener('pointerup',pushToTalkEnd);
-    joinBtn.addEventListener('click',join); leaveBtn.addEventListener('click',leave); micBtn.addEventListener('click',toggleMic);
+    joinBtn.addEventListener('click',()=>join()); leaveBtn.addEventListener('click',leave); micBtn.addEventListener('click',toggleMic);
     soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; audioElements.forEach(audio=>audio.muted=!soundOn); soundBtn.textContent=soundOn?'🔊 Âm thanh bật':'🔇 Âm thanh tắt'; });
     window.addEventListener('beforeunload',()=>{ try { if(me) me.leave(); if(room) room.dispose(); if(context) context.dispose(); } catch(_){} });
   })();
