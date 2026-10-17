@@ -21,8 +21,7 @@
       <h2>Nói chuyện cùng đồng đội</h2>
       <p class="hero-copy">Tạo phòng để nhận mã ngẫu nhiên 4 chữ số, hoặc nhập mã bạn bè gửi để tham gia.</p>
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Ví dụ: Steve">
-      <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán Auth Token của bạn"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
-      <p class="note">Token chỉ dùng trong phiên đang mở, không được lưu vào GitHub hay local storage.</p>
+      <div class="status"><span class="dot live"></span><span>SkyWay xác thực tự động qua máy chủ bảo mật. Application ID và Secret Key không được gửi tới trình duyệt.</span></div>
       <div class="actions"><button id="createRoom" type="button">＋ Tạo phòng mới</button><button id="join">Vào phòng bằng mã</button></div>
       <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
       <div class="room-code"><div><small>MÃ PHÒNG HIỆN TẠI</small><strong id="currentCode">----</strong></div><button id="copyRoom" type="button" class="secondary">Sao chép</button></div>
@@ -57,9 +56,9 @@
   <script>
   (() => {
     const $ = (id) => document.getElementById(id);
-    const roomInput = $('room'), nickInput = $('nickname'), tokenInput = $('token');
+    const roomInput = $('room'), nickInput = $('nickname');
     const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
-    const copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
+    const copyRoomBtn = $('copyRoom'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     const logsEl = $('logs'), logCountEl = $('logCount');
     const logEntries = [];
@@ -155,16 +154,23 @@
     async function join(generatedRoomName=null) {
       if (busy || room) return;
       try { localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
-      const roomName=(generatedRoomName || roomInput.value).trim(), token=tokenInput.value.trim();
+      const roomName=(generatedRoomName || roomInput.value).trim();
       if (!/^[0-9]{4}$/.test(roomName)) { status('Mã phòng phải gồm đúng 4 chữ số.'); return; }
-      if (!roomName || !token) { status('Thiếu mã phòng hoặc SkyWay Auth Token.'); return; }
+      if (!roomName) { status('Thiếu mã phòng.'); return; }
       busy=true; joinBtn.disabled=true; createRoomBtn.disabled=true; log('info', 'Bắt đầu kết nối', 'phòng=' + roomName); status(generatedRoomName?'Đang tạo phòng mới…':'Đang kết nối vào phòng…');
       try {
         const sdk=window.skyway_room;
         if (!sdk) throw new Error('Không tải được SkyWay SDK. Kiểm tra kết nối Internet.');
         log('info', 'SkyWay SDK đã sẵn sàng');
         log('info', 'Đang xác thực SkyWay (không ghi token vào log)');
-        context=await sdk.SkyWayContext.Create(token,{log:{level:'debug'}});
+        const tokenResponse = await fetch(LOG_API + '/skyway-token', {cache:'no-store'});
+        if (!tokenResponse.ok) {
+          const issue = await tokenResponse.json().catch(()=>({}));
+          throw new Error(issue.error === 'skyway_not_configured' ? 'Máy chủ chưa được cấu hình SkyWay Application ID và Secret Key.' : 'Không lấy được SkyWay Auth Token từ máy chủ (' + tokenResponse.status + ').');
+        }
+        const tokenData = await tokenResponse.json();
+        if (!tokenData.token) throw new Error('Máy chủ không trả về SkyWay Auth Token.');
+        context=await sdk.SkyWayContext.Create(tokenData.token,{log:{level:'debug'}});
         log('info','Đã bật log debug của SkyWay SDK. Xem thêm Console nếu cần.');
         log('info', 'Xác thực SkyWay thành công');
         log('info', 'Đang tìm hoặc tạo phòng');
@@ -190,7 +196,6 @@
         leaveBtn.disabled=false; micBtn.disabled=false; pttBtn.disabled=false; micBtn.textContent='🎙 Bật mic';
         roomInput.value=roomName; currentCodeEl.textContent=roomName;
         status((generatedRoomName?'Đã tạo phòng mới: ':'Đã vào phòng: ')+roomName+'. Micro đang tắt.',true); renderPeople();
-        tokenInput.value='';
       } catch(error) {
         log('error', 'Kết nối thất bại', error?.message || String(error));
         status('Kết nối thất bại: '+(error?.message || String(error)));
@@ -220,7 +225,6 @@
     }
     createRoomBtn.addEventListener('click',()=>{if(busy||room)return;const code=randomRoomCode();roomInput.value=code;currentCodeEl.textContent=code;join(code);});
     copyRoomBtn.addEventListener('click',async()=>{const code=currentCodeEl.textContent==='----'?roomInput.value.trim():currentCodeEl.textContent;if(!/^[0-9]{4}$/.test(code)){status('Chưa có mã phòng để sao chép.');return;}try{await navigator.clipboard.writeText(code);status('Đã sao chép mã phòng '+code+'.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
-    showTokenBtn.addEventListener('click',()=>{const visible=tokenInput.type==='password';tokenInput.type=visible?'text':'password';showTokenBtn.textContent=visible?'Ẩn':'Hiện';});
     async function pushToTalkStart(event){if(event&&event.cancelable)event.preventDefault();if(!audioPublication||pttActive)return;pttActive=true;pttWasMuted=muted;try{if(muted){await audioPublication.enable();muted=false;micBtn.textContent='🎙 Tắt mic';}pttBtn.textContent='🟢 Đang nói… thả để tắt';pttBtn.classList.remove('secondary')}catch(error){pttActive=false;status('Không bật được micro: '+(error?.message||error));}}
     async function pushToTalkEnd(){if(!pttActive)return;pttActive=false;try{if(pttWasMuted&&audioPublication){await audioPublication.disable();muted=true;micBtn.textContent='🎙 Bật mic';}}catch(error){status('Không tắt được micro: '+(error?.message||error));}pttBtn.textContent='🎧 Giữ để nói';pttBtn.classList.add('secondary');}
     pttBtn.addEventListener('pointerdown',pushToTalkStart);pttBtn.addEventListener('pointerup',pushToTalkEnd);pttBtn.addEventListener('pointercancel',pushToTalkEnd);pttBtn.addEventListener('lostpointercapture',pushToTalkEnd);window.addEventListener('pointerup',pushToTalkEnd);
