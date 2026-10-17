@@ -40,6 +40,13 @@
       <p class="note">Micro mặc định tắt khi vào phòng. Giữ nút này để nói, thả tay ra sẽ tắt micro lại.</p>
       <p class="note">Cho phép trình duyệt dùng micro khi được hỏi. Trên Android, hãy giữ tab này hoạt động để âm thanh ổn định hơn.</p>
     </section>
+    <section class="panel" id="logPanel">
+      <div class="eyebrow">DEBUG CONSOLE</div>
+      <h2>Nhật ký kết nối <span id="logCount" class="note">(0)</span></h2>
+      <p class="note">Hiển thị các bước kết nối và lỗi để dễ gửi báo lỗi. Nhật ký không ghi Auth Token hoặc Secret Key.</p>
+      <div class="row" style="margin-bottom:10px"><button id="copyLogs" type="button" class="secondary">Sao chép log</button><button id="clearLogs" type="button" class="secondary">Xóa log</button></div>
+      <pre id="logs" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;background:#080e0a;border:1px solid #263a2c;border-radius:13px;padding:12px;margin:0;color:#ccebd5;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace">Đang khởi tạo nhật ký…</pre>
+    </section>
     <section class="panel">
       <div class="warning"><strong>Ghi chú bảo mật:</strong> Không đưa SkyWay Secret Key vào website công khai. Hãy cấp Auth Token từ backend của bạn. GitHub Pages chỉ lưu và phục vụ file tĩnh, không thể tự phát hành token an toàn.</div>
       <p class="note">Trang này dùng SkyWay WebRTC cho âm thanh. Không có WebSocket do dự án tự viết để chuyển âm thanh; SDK có thể sử dụng WebSocket cho signaling. WebRTC có thể dùng tuyến UDP hoặc fallback tùy mạng.</p>
@@ -54,6 +61,28 @@
     const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
     const copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
+    const logsEl = $('logs'), logCountEl = $('logCount');
+    const logEntries = [];
+    function log(level, message, detail) {
+      const stamp = new Date().toLocaleTimeString();
+      const extra = detail ? ' ' + String(detail).replace(/[\\r\\n]+/g, ' ').slice(0, 500) : '';
+      const entry = '[' + stamp + '] [' + level.toUpperCase() + '] ' + message + extra;
+      logEntries.push(entry);
+      if (logEntries.length > 150) logEntries.shift();
+      logsEl.textContent = logEntries.join('\\n');
+      logCountEl.textContent = '(' + logEntries.length + ')';
+      logsEl.scrollTop = logsEl.scrollHeight;
+      if (level === 'error') console.error(entry); else if (level === 'warn') console.warn(entry); else console.info(entry);
+    }
+    $('copyLogs').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(logEntries.join('\\n')); log('info', 'Đã sao chép nhật ký.'); }
+      catch (_) { log('warn', 'Không thể tự sao chép; hãy nhấn giữ vùng nhật ký để sao chép thủ công.'); }
+    });
+    $('clearLogs').addEventListener('click', () => { logEntries.length = 0; logsEl.textContent = ''; logCountEl.textContent = '(0)'; log('info', 'Đã xóa nhật ký.'); });
+    window.addEventListener('error', (event) => log('error', 'Lỗi JavaScript', event.message || 'Không rõ lỗi'));
+    window.addEventListener('unhandledrejection', (event) => log('error', 'Promise bị lỗi', event.reason?.message || event.reason || 'Không rõ lỗi'));
+    log('info', 'Trang đã khởi động.');
+    log('info', 'SkyWay SDK ' + (window.skyway_room ? 'đã tải' : 'chưa tải tại thời điểm khởi động'));
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
     try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
@@ -61,7 +90,7 @@
     roomInput.addEventListener('input',()=>{roomInput.value=roomInput.value.replace(/[^0-9]/g,'').slice(0,4);});
     const subscriptions = new Map(), audioElements = new Map(), memberNames = new Map();
 
-    function status(message, live=false) { statusEl.textContent = message; dot.classList.toggle('live', live); }
+    function status(message, live=false) { statusEl.textContent = message; dot.classList.toggle('live', live); log(live ? 'info' : 'status', message); }
     function safeName(member) { return memberNames.get(member.id) || member.name || ('Người chơi ' + String(member.id).slice(0,8)); }
     function renderPeople() {
       const members = room ? room.members : [];
@@ -77,6 +106,7 @@
       });
     }
     async function subscribePublication(publication) {
+      log('info', 'Phát hiện publication', 'loại=' + publication.contentType);
       if (!me || publication.publisher.id === me.id || subscriptions.has(publication.id) || publication.contentType !== 'audio') return;
       try {
         const result = await me.subscribe(publication.id);
@@ -86,7 +116,7 @@
         stream.attach(audio); audio.muted=!soundOn;
         audioElements.set(publication.id,audio); subscriptions.set(publication.id,result.subscription || stream);
         try { await audio.play(); } catch (_) { status('Đã kết nối. Chạm vào trang nếu trình duyệt chặn phát âm thanh.', true); }
-      } catch (error) { console.error(error); status('Không thể nhận âm thanh: ' + (error?.message || error)); }
+      } catch (error) { log('error', 'Không thể nhận âm thanh', error?.message || error); status('Không thể nhận âm thanh: ' + (error?.message || error)); }
     }
     async function join(generatedRoomName=null) {
       if (busy || room) return;
@@ -94,16 +124,25 @@
       const roomName=(generatedRoomName || roomInput.value).trim(), token=tokenInput.value.trim();
       if (!/^[0-9]{4}$/.test(roomName)) { status('Mã phòng phải gồm đúng 4 chữ số.'); return; }
       if (!roomName || !token) { status('Thiếu mã phòng hoặc SkyWay Auth Token.'); return; }
-      busy=true; joinBtn.disabled=true; createRoomBtn.disabled=true; status(generatedRoomName?'Đang tạo phòng mới…':'Đang kết nối vào phòng…');
+      busy=true; joinBtn.disabled=true; createRoomBtn.disabled=true; log('info', 'Bắt đầu kết nối', 'phòng=' + roomName); status(generatedRoomName?'Đang tạo phòng mới…':'Đang kết nối vào phòng…');
       try {
         const sdk=window.skyway_room;
         if (!sdk) throw new Error('Không tải được SkyWay SDK. Kiểm tra kết nối Internet.');
+        log('info', 'SkyWay SDK đã sẵn sàng');
+        log('info', 'Đang xác thực SkyWay (không ghi token vào log)');
         context=await sdk.SkyWayContext.Create(token);
+        log('info', 'Xác thực SkyWay thành công');
+        log('info', 'Đang tìm hoặc tạo phòng');
         room=await sdk.SkyWayRoom.FindOrCreate(context,{name:roomName,type:'sfu'});
+        log('info', 'Đã tìm/tạo phòng');
         me=await room.join({name:nickInput.value.trim().slice(0,32) || undefined});
+        log('info', 'Đã tham gia phòng', 'memberId=' + me.id);
         memberNames.set(me.id,nickInput.value.trim() || 'Bạn');
+        log('info', 'Đang yêu cầu quyền microphone');
         localAudio=await sdk.SkyWayStreamFactory.createMicrophoneAudioStream();
+        log('info', 'Đã lấy được microphone');
         audioPublication=await me.publish(localAudio);
+        log('info', 'Đã publish audio');
         await audioPublication.disable(); muted=true;
         room.publications.forEach(subscribePublication);
         room.onStreamPublished.add((event)=>subscribePublication(event.publication));
@@ -118,13 +157,15 @@
         status((generatedRoomName?'Đã tạo phòng mới: ':'Đã vào phòng: ')+roomName+'. Micro đang tắt.',true); renderPeople();
         tokenInput.value='';
       } catch(error) {
-        console.error(error); status('Kết nối thất bại: '+(error?.message || String(error)));
+        log('error', 'Kết nối thất bại', error?.message || String(error));
+        status('Kết nối thất bại: '+(error?.message || String(error)));
         if(room) { try { await room.dispose(); } catch(_){} }
         if(context) { try { context.dispose(); } catch(_){} }
         room=null; context=null; me=null;
       } finally { busy=false; joinBtn.disabled=!!room; createRoomBtn.disabled=!!room; }
     }
     async function leave() {
+      log('info', 'Đang rời phòng');
       leaveBtn.disabled=true; micBtn.disabled=true; pttBtn.disabled=true; pttActive=false; pttBtn.textContent='🎧 Giữ để nói';
       try { if(me) await me.leave(); } catch(error) { console.warn(error); }
       try { if(room) await room.dispose(); } catch(error) { console.warn(error); }
@@ -133,7 +174,7 @@
       audioElements.forEach(audio=>audio.remove()); audioElements.clear(); subscriptions.clear(); memberNames.clear();
       room=null; context=null; me=null; localAudio=null; audioPublication=null; muted=false;
       joinBtn.disabled=false; createRoomBtn.disabled=false; micBtn.textContent='🎙 Bật mic'; pttBtn.disabled=true; pttBtn.textContent='🎧 Giữ để nói'; peopleEl.innerHTML='<div class="empty">Chưa có kết nối nào.</div>'; countEl.textContent='(0)'; currentCodeEl.textContent='----';
-      status('Đã rời phòng.'); 
+      status('Đã rời phòng.'); log('info', 'Đã dọn dẹp kết nối'); 
     }
     async function toggleMic() {
       if(!audioPublication) return;
