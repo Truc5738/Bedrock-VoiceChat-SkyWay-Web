@@ -8,5 +8,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@skyway-sdk/token": "^2.4.1"
   }
 }
