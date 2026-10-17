@@ -130,7 +130,8 @@
         if (!sdk) throw new Error('Không tải được SkyWay SDK. Kiểm tra kết nối Internet.');
         log('info', 'SkyWay SDK đã sẵn sàng');
         log('info', 'Đang xác thực SkyWay (không ghi token vào log)');
-        context=await sdk.SkyWayContext.Create(token);
+        context=await sdk.SkyWayContext.Create(token,{log:{level:'debug'}});
+        log('info','Đã bật log debug của SkyWay SDK. Xem thêm Console nếu cần.');
         log('info', 'Xác thực SkyWay thành công');
         log('info', 'Đang tìm hoặc tạo phòng');
         room=await sdk.SkyWayRoom.FindOrCreate(context,{name:roomName,type:'sfu'});
