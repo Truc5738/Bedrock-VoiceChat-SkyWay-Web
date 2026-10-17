@@ -18,7 +18,7 @@
     <header class="brand"><div class="logo">B</div><div><h1>Bedrock Voice</h1><p>Voice rooms for Minecraft · Powered by SkyWay</p></div></header>
     <section class="panel">
       <div class="eyebrow">VOICE ROOM</div><h2>Kết nối với bạn bè</h2>
-      <label for="room">Mã phòng</label><input id="room" maxlength="80" value="survival-vn" autocomplete="off" placeholder="Ví dụ: survival-vn">
+      <label for="room">Mã phòng</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" value="1234" autocomplete="off" placeholder="4 chữ số">
       <div class="row" style="margin-top:8px"><button id="newRoom" type="button" class="secondary">🎲 Tạo mã phòng</button><button id="copyRoom" type="button" class="secondary">📋 Sao chép mã</button></div>
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Tên của bạn">
       <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán token có quyền join/publish/subscribe"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
@@ -87,6 +87,7 @@
       if (busy || room) return;
       try { localStorage.setItem('bedrockVoice.room',roomInput.value.trim()); localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
       const roomName=roomInput.value.trim(), token=tokenInput.value.trim();
+      if (!/^[0-9]{4}$/.test(roomName)) { status('Mã phòng phải gồm đúng 4 chữ số.'); return; }
       if (!roomName || !token) { status('Hãy nhập mã phòng và SkyWay Auth Token.'); return; }
       busy=true; joinBtn.disabled=true; status('Đang xin quyền micro và kết nối…');
       try {
@@ -135,7 +136,7 @@
         else { await audioPublication.enable(); muted=false; micBtn.textContent='🎙 Tắt mic'; status('Micro đang bật.',true); }
       } catch(error) { status('Không đổi được trạng thái micro: '+(error?.message || error)); }
     }
-    newRoomBtn.addEventListener('click',()=>{const chars='abcdefghjkmnpqrstuvwxyz23456789';let code='survival-';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];roomInput.value=code;try{localStorage.setItem('bedrockVoice.room',code)}catch(_){}status('Đã tạo mã phòng mới. Gửi mã này cho bạn bè.');});
+    newRoomBtn.addEventListener('click',()=>{let code;try{const rooms=JSON.parse(localStorage.getItem('bedrockVoice.recentRooms')||'[]');const used=new Set(rooms.map(String));for(let tries=0;tries<100;tries++){const candidate=String(Math.floor(1000+Math.random()*9000));if(!used.has(candidate)){code=candidate;break;}}}catch(_){}if(!code)code=String(Math.floor(1000+Math.random()*9000));roomInput.value=code;try{localStorage.setItem('bedrockVoice.room',code)}catch(_){}status('Mã phòng 4 số đã tạo. Gửi mã này cho bạn bè.');});
     copyRoomBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(roomInput.value.trim());status('Đã sao chép mã phòng.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
     showTokenBtn.addEventListener('click',()=>{const visible=tokenInput.type==='password';tokenInput.type=visible?'text':'password';showTokenBtn.textContent=visible?'Ẩn':'Hiện';});
     async function pushToTalkStart(event){if(event&&event.cancelable)event.preventDefault();if(!audioPublication||pttActive)return;pttActive=true;pttWasMuted=muted;try{if(muted){await audioPublication.enable();muted=false;micBtn.textContent='🎙 Tắt mic';}pttBtn.textContent='🟢 Đang nói… thả để tắt';pttBtn.classList.remove('secondary')}catch(error){pttActive=false;status('Không bật được micro: '+(error?.message||error));}}
