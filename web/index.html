@@ -99,7 +99,7 @@
         const sdk=window.skyway_room;
         if (!sdk) throw new Error('Không tải được SkyWay SDK. Kiểm tra kết nối Internet.');
         context=await sdk.SkyWayContext.Create(token);
-        room=await sdk.SkyWayRoom.FindOrCreate(context,{name:roomName},{type:'sfu'});
+        room=await sdk.SkyWayRoom.FindOrCreate(context,{name:roomName,type:'sfu'});
         me=await room.join({name:nickInput.value.trim().slice(0,32) || undefined});
         memberNames.set(me.id,nickInput.value.trim() || 'Bạn');
         localAudio=await sdk.SkyWayStreamFactory.createMicrophoneAudioStream();
