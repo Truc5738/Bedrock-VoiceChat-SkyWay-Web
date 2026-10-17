@@ -3,9 +3,6 @@ name: Deploy Bedrock Voice to GitHub Pages
 on:
   push:
     branches: [main]
-    paths:
-      - "web/**"
-      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site
+      - name: Upload voice client site
         uses: actions/upload-pages-artifact@v3
         with:
           path: web
