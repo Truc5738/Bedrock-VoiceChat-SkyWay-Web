@@ -1,125 +1,150 @@
-# Minecraft-VoiceChannel
+# Bedrock VoiceChat SkyWay Web
 
-Cross-platform voice channel backend for Paper 26.2 / Java 25.
+Giải pháp thử nghiệm để xây dựng trò chuyện thoại cho người chơi Minecraft Java và Bedrock, gồm plugin Paper, các ứng dụng voice client và một trang web dùng SkyWay WebRTC.
 
-## Target environment
+> **Trạng thái:** Đang phát triển. README mô tả cấu trúc và giới hạn hiện tại; không có nghĩa toàn bộ luồng thoại đã được kiểm thử thực tế trên máy chủ và điện thoại.
 
-- Paper 26.2
-- Java 25
-- Alpine Linux / musl libc compatible
-- Third-party Minecraft hosting/container environments
-- Floodgate for Bedrock player detection and Bedrock UI
-- Default voice gateway port: TCP 26467
-- No FFmpeg
-- No JAVE2
-- No glibc dependency
-- No native Linux executable
+## Mục lục
 
-Paper 26.2 officially supports Java 25. The build uses Paper's 26.2.build.+ API format.
+- [Tổng quan](#tổng-quan)
+- [Các thành phần](#các-thành-phần)
+- [Yêu cầu](#yêu-cầu)
+- [Build bằng GitHub Actions](#build-bằng-github-actions)
+- [Triển khai trang web](#triển-khai-trang-web)
+- [Thiết lập SkyWay an toàn](#thiết-lập-skyway-an-toàn)
+- [Giới hạn quan trọng](#giới-hạn-quan-trọng)
+- [Giao thức gateway TCP](#giao-thức-gateway-tcp)
+- [Tài liệu](#tài-liệu)
+- [Khắc phục sự cố](#khắc-phục-sự-cố)
 
-## Main command
+## Tổng quan
 
-/voicechannel
+Mục tiêu của dự án là cung cấp nền tảng để phát triển voice chat cho máy chủ Minecraft, bao gồm giao diện quản lý kênh thoại và các client thu/phát âm thanh.
 
-The command opens a Java inventory UI or a Floodgate/Cumulus Bedrock form.
+Các chức năng được hướng tới:
 
-## UI features
+- Bật/tắt micro và âm thanh đầu ra.
+- Kênh thoại và nền tảng cho kênh riêng tư.
+- Hiển thị số người đang nói.
+- Quy tắc khoảng cách, thế giới và kênh để định tuyến âm thanh.
+- Điều chỉnh âm lượng hoặc tắt tiếng từng người chơi.
+- Hỗ trợ giao diện cho người chơi Bedrock thông qua Floodgate/Cumulus.
+- Client trình duyệt dựa trên SkyWay WebRTC để thử nghiệm thoại trên thiết bị di động.
 
-1. Microphone mute/unmute state
-2. Voice output mute/unmute state
-3. Live speaking player count
-4. Voice channels
-5. Private-channel configuration foundation
-6. Proximity voice range
-7. Per-player volume state
-8. Per-player mute state foundation
-9. Channel moderation foundation
-10. Voice settings foundation
+Một số mục là nền tảng hoặc đang phát triển, không nên hiểu là tất cả đã hoàn thiện.
 
-## Alpine-safe gateway
+## Các thành phần
 
-The plugin contains an embedded TCP voice gateway on port 26467.
+| Thành phần | Đường dẫn | Vai trò |
+|---|---|---|
+| Plugin Paper | `src/` | Lệnh, giao diện, trạng thái người chơi và logic máy chủ |
+| Java voice client | `voice-client/` | Client thoại Java |
+| Android voice client | `voice-client-android/` | Ứng dụng Android |
+| SkyWay web client | `web/index.html` | Trang web thoại chạy trong trình duyệt |
+| GitHub Actions | `.github/workflows/` | Build và triển khai GitHub Pages |
+| Wiki | `docs/wiki/` | Hướng dẫn và tài liệu kỹ thuật |
 
-The gateway is implemented with Java standard networking APIs. It does not execute FFmpeg, JAVE2, glibc binaries, shell commands, or native Linux libraries.
+## Yêu cầu
 
-On first startup, the default token change-me is replaced with a random 256-bit URL-safe token and saved to config.yml.
+- GitHub để chạy workflow build.
+- JDK theo cấu hình trong workflow tương ứng.
+- Máy chủ Paper tương thích với phiên bản API được khai báo trong `build.gradle.kts`.
+- Floodgate nếu cần nhận diện người chơi Bedrock và hiển thị form Bedrock.
+- Cổng TCP có thể truy cập từ client nếu sử dụng gateway tích hợp.
+- SkyWay project và Auth Token hợp lệ nếu dùng trang web SkyWay.
 
-The host must expose TCP port 26467 to the client voice bridge.
+**Lưu ý về phiên bản:** Hãy kiểm tra `build.gradle.kts`, các tệp Gradle của từng client và workflow trước khi chọn phiên bản Minecraft/Java cho máy chủ. Phiên bản trong cấu hình build có thể thay đổi theo commit.
 
-## Voice transport protocol
+## Build bằng GitHub Actions
 
-Frame layout:
+1. Mở tab **Actions** của repository.
+2. Chọn workflow build.
+3. Chạy workflow hoặc đẩy commit mới lên nhánh `main`.
+4. Mở lần chạy tương ứng và kiểm tra từng job.
+5. Nếu build thành công, tải các artifact ở cuối trang workflow run.
 
-- 4 bytes: ASCII magic MVC1
-- 1 byte: packet type
-- 16 bytes: player UUID
-- 4 bytes: sequence number
-- 4 bytes: payload length
-- N bytes: payload
+Mở [GitHub Actions](../../actions) để xem trạng thái build mới nhất.
 
-Packet types:
+Nếu build thất bại, hãy xem log của bước lỗi đầu tiên. Một bước bị bỏ qua (`skipped`) không tự động có nghĩa là build thất bại; có thể bước đó chỉ chạy khi thỏa điều kiện nhất định.
 
-- 1 HELLO: UTF-8 gateway token, sequence 0
-- 2 AUDIO: encoded voice frame, normally Opus
-- 3 GOODBYE: empty payload
+## Triển khai trang web
 
-A client must send HELLO before AUDIO. The UUID in every packet must match the authenticated session.
+Trang web nằm tại [`web/index.html`](web/index.html). Workflow triển khai GitHub Pages nằm ở [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
 
-The server routes audio using channel, proximity range, world, output mute, per-player mute and microphone mute state.
+Để bật GitHub Pages:
 
-## Important client limitation
+1. Mở **Settings → Pages** trong repository.
+2. Chọn **GitHub Actions** làm nguồn triển khai.
+3. Đẩy thay đổi trong thư mục `web/` lên nhánh `main`, hoặc chạy workflow triển khai thủ công nếu workflow hỗ trợ.
+4. Kiểm tra trạng thái deployment trong tab **Actions**.
 
-A normal Paper plugin cannot read a player's microphone. Vanilla Java and vanilla Bedrock clients do not expose microphone capture to a server plugin.
+GitHub Pages chỉ phục vụ các tệp tĩnh. Nó không tự tạo SkyWay Auth Token và cũng không cung cấp máy chủ backend.
 
-Therefore the project separates:
+## Thiết lập SkyWay an toàn
 
-- Paper plugin: UI, permissions, channels, moderation, proximity rules and gateway
-- Voice client/bridge: microphone capture, audio encoding and speaker playback
+Trang web yêu cầu **SkyWay Auth Token ngắn hạn** do hệ thống của bạn cấp.
 
-Floodgate provides Bedrock identity and forms; it does not provide microphone capture.
+- Không bao giờ đưa SkyWay Secret Key vào `web/index.html`, repository công khai, mã JavaScript chạy trong trình duyệt hoặc ảnh chụp màn hình.
+- Không dùng token dài hạn có quyền quá rộng.
+- Với triển khai thực tế, tạo token ở backend đáng tin cậy, giới hạn quyền và thời gian sống của token.
+- Nếu token bị lộ, thu hồi hoặc thay thế token đó trong bảng điều khiển SkyWay.
+- Chỉ dùng thông tin cấu hình phù hợp với SkyWay project của bạn.
 
-The gateway protocol is designed so a Java client mod and a compatible Bedrock companion client can share the same voice backend without FFmpeg or glibc.
+## Giới hạn quan trọng
 
-## Build
+- **Plugin Paper không thể tự đọc micro của người chơi.** Minecraft Java/Bedrock vanilla không cung cấp dữ liệu micro cho plugin máy chủ.
+- **Floodgate không thu âm.** Floodgate hỗ trợ nhận diện người chơi Bedrock; Cumulus có thể cung cấp giao diện form, nhưng không phải hệ thống voice capture.
+- **Trang web không tự biết vị trí trong Minecraft.** Để có âm thanh theo khoảng cách, cần một cầu nối vị trí đáng tin cậy từ máy chủ/game tới hệ thống thoại.
+- **GitHub Pages không phải backend phát token.** Cần backend riêng nếu muốn cấp token an toàn.
+- **WebRTC phụ thuộc mạng.** Kết nối có thể dùng UDP hoặc cơ chế chuyển tiếp/fallback tùy mạng và cấu hình dịch vụ.
+- **Chưa nên coi đây là bản production** cho tới khi kiểm thử thực tế kết nối, quyền truy cập, xử lý mất kết nối và bảo mật token.
 
-GitHub Actions builds the plugin with Java 25 and uploads the generated JAR as a workflow artifact.
+## Giao thức gateway TCP
 
-For a fixed Paper build, replace 26.2.build.+ with a stable build such as 26.2.build.112-stable.
+Plugin có gateway thoại TCP tích hợp. Cấu hình cổng mặc định trong mã hiện tại là `26467`; hãy xác nhận lại trong `config.yml` và mã nguồn của đúng phiên bản bạn đang chạy.
 
-## Hosting notes
+Khung gói tin được mô tả như sau:
 
-Do not place the voice gateway on the same UDP port used by Geyser. The voice gateway in this project uses TCP 26467.
+| Trường | Kích thước |
+|---|---:|
+| Magic ASCII `MVC1` | 4 byte |
+| Loại gói | 1 byte |
+| UUID người chơi | 16 byte |
+| Số thứ tự | 4 byte |
+| Độ dài payload | 4 byte |
+| Payload | N byte |
 
-If the hosting provider only exposes TCP and does not provide an additional TCP port, use the assigned secondary TCP port in config.yml.
+Loại gói được thiết kế:
 
-If the provider blocks custom inbound ports entirely, the gateway cannot accept direct client connections from the Internet.
+- `1 HELLO`: token gateway dạng UTF-8, sequence bằng `0`.
+- `2 AUDIO`: khung âm thanh đã mã hóa, thường là Opus.
+- `3 GOODBYE`: payload rỗng.
 
-## No-emoji rule
+Client phải xác thực bằng `HELLO` trước khi gửi `AUDIO`; UUID trong gói tin phải khớp với phiên đã xác thực. Hãy xem [Protocol](docs/wiki/Protocol.md) trước khi tự viết client tương thích.
 
-Plugin UI, config, permissions and protocol messages intentionally avoid emoji characters.
+> Không công khai token gateway. Nếu token mặc định hoặc token hiện tại đã bị lộ, hãy thay thế nó và kiểm tra cấu hình máy chủ.
 
+## Tài liệu
 
-## Documentation / Wiki
+- [Trang chủ Wiki](docs/wiki/Home.md)
+- [Cài đặt](docs/wiki/Installation.md)
+- [Cấu hình](docs/wiki/Configuration.md)
+- [Các client](docs/wiki/Clients.md)
+- [Giao thức](docs/wiki/Protocol.md)
+- [Kiến trúc](docs/wiki/Architecture.md)
+- [Khắc phục sự cố](docs/wiki/Troubleshooting.md)
 
-A polished project wiki is maintained in [docs/wiki](docs/wiki/Home.md).
+## Đóng góp và báo lỗi
 
-- [Wiki home](docs/wiki/Home.md)
-- [Installation](docs/wiki/Installation.md)
-- [Configuration](docs/wiki/Configuration.md)
-- [Clients](docs/wiki/Clients.md)
-- [Protocol](docs/wiki/Protocol.md)
-- [Architecture](docs/wiki/Architecture.md)
-- [Troubleshooting](docs/wiki/Troubleshooting.md)
+Khi báo lỗi, hãy đính kèm:
 
+- Phiên bản Minecraft, Paper và Java.
+- Tên workflow và đường dẫn tới lần chạy Actions bị lỗi.
+- Log liên quan đã xóa token, mật khẩu, địa chỉ riêng tư và dữ liệu nhạy cảm.
+- Các bước tái hiện lỗi và kết quả mong đợi.
 
-## Bedrock Voice web client
+Không đăng SkyWay Secret Key, Auth Token, token gateway, mật khẩu RDP hoặc thông tin đăng nhập trong issue/log công khai.
 
-A browser-based SkyWay voice client is available at [web/index.html](web/index.html). It is intended to run beside Minecraft Bedrock on Android or another device.
+## Quy tắc giao diện
 
-- Uses SkyWay WebRTC audio rooms; no custom WebSocket audio transport is implemented.
-- The SkyWay SDK may use WebSocket for signaling, and WebRTC may use UDP or a fallback route depending on the network.
-- Paste a short-lived SkyWay Auth Token into the page. Never put a SkyWay Secret Key in public client code.
-- GitHub Pages serves the static client only. A secure token-issuing backend must be configured separately for production.
-- The client does not automatically read Minecraft world/player positions, so proximity audio needs an additional trusted position bridge.
-
-The GitHub Pages workflow is defined in `.github/workflows/deploy-pages.yml`. If Pages has not been enabled for this repository, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source.
+Các thông báo, cấu hình và giao thức của plugin nên tránh emoji để giữ giao diện nhất quán và hạn chế vấn đề tương thích.
