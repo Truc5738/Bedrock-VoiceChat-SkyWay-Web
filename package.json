@@ -1,0 +1,12 @@
+{
+  "name": "bedrock-voicechat-render-services",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node log-api/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
