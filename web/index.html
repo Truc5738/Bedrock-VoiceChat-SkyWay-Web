@@ -22,7 +22,11 @@
       <p class="hero-copy">Tạo phòng để nhận mã ngẫu nhiên 4 chữ số, hoặc nhập mã bạn bè gửi để tham gia.</p>
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Ví dụ: Steve">
       <div class="status"><span class="dot live"></span><span>SkyWay xác thực tự động qua máy chủ bảo mật. Application ID và Secret Key không được gửi tới trình duyệt.</span></div>
-      <div class="actions"><button id="createRoom" type="button">＋ Tạo phòng mới</button><button id="join">Vào phòng bằng mã</button></div>
+      <div class="panel" style="margin:14px 0 0;padding:14px;background:#0b150e">
+        <div class="row"><button id="wakeServer" type="button">▶ BẬT MÁY CHỦ</button><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
+        <div class="status" style="margin-top:10px" role="status" aria-live="polite"><span id="serverDot" class="dot"></span><span id="serverStatus">Chưa kiểm tra máy chủ. Bấm “BẬT MÁY CHỦ” để kết nối.</span></div>
+      </div>
+      <div class="actions"><button id="createRoom" type="button" disabled>＋ Tạo phòng mới</button><button id="join" disabled>Vào phòng bằng mã</button></div>
       <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
       <div class="room-code"><div><small>MÃ PHÒNG HIỆN TẠI</small><strong id="currentCode">----</strong></div><button id="copyRoom" type="button" class="secondary">Sao chép</button></div>
       <button id="leave" class="secondary" disabled style="width:100%">Rời phòng</button>
@@ -58,6 +62,8 @@
     const $ = (id) => document.getElementById(id);
     const roomInput = $('room'), nickInput = $('nickname');
     const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
+    const wakeServerBtn = $('wakeServer'), checkServerBtn = $('checkServer'), serverStatusEl = $('serverStatus'), serverDot = $('serverDot');
+    let serverReady = false, serverCheckBusy = false;
     const copyRoomBtn = $('copyRoom'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     const logsEl = $('logs'), logCountEl = $('logCount');
@@ -116,6 +122,53 @@
     window.addEventListener('unhandledrejection', (event) => log('error', 'Promise bị lỗi', event.reason?.message || event.reason || 'Không rõ lỗi'));
     log('info', 'Trang đã khởi động.');
     log('info', 'SkyWay SDK ' + (window.skyway_room ? 'đã tải' : 'chưa tải tại thời điểm khởi động'));
+    function setServerState(message, ready=false) {
+      serverReady = ready;
+      serverStatusEl.textContent = message;
+      serverDot.classList.toggle('live', ready);
+      createRoomBtn.disabled = !ready || !!room || busy;
+      joinBtn.disabled = !ready || !!room || busy;
+    }
+    async function checkOrWakeServer() {
+      if (serverCheckBusy) return;
+      serverCheckBusy = true;
+      wakeServerBtn.disabled = true; checkServerBtn.disabled = true;
+      setServerState('Đang đánh thức / kiểm tra Render backend…');
+      const deadline = Date.now() + 90000;
+      let lastError = 'Máy chủ chưa phản hồi';
+      try {
+        while (Date.now() < deadline) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          try {
+            const response = await fetch(LOG_API + '/health', {method:'GET', cache:'no-store', signal:controller.signal});
+            if (response.ok) {
+              const data = await response.json();
+              if (data.ok && data.skywayConfigured) {
+                setServerState('Máy chủ đang hoạt động. Có thể tạo phòng hoặc tham gia phòng.', true);
+                log('info', 'Render backend đã sẵn sàng');
+                return;
+              }
+              if (data.ok && !data.skywayConfigured) {
+                lastError = 'Backend hoạt động nhưng SkyWay chưa được cấu hình.';
+                break;
+              }
+              lastError = 'Backend phản hồi nhưng trạng thái chưa hợp lệ.';
+            } else lastError = 'Backend phản hồi HTTP ' + response.status;
+          } catch (error) {
+            lastError = error?.name === 'AbortError' ? 'Đang chờ Render khởi động…' : 'Đang chờ Render phản hồi…';
+          } finally { clearTimeout(timeout); }
+          setServerState(lastError + ' Thử lại tự động…');
+          await new Promise(resolve => setTimeout(resolve, 2500));
+        }
+        setServerState(lastError + ' Hãy bấm “BẬT MÁY CHỦ” để thử lại.');
+      } finally {
+        serverCheckBusy = false;
+        wakeServerBtn.disabled = false; checkServerBtn.disabled = false;
+      }
+    }
+    wakeServerBtn.addEventListener('click', checkOrWakeServer);
+    checkServerBtn.addEventListener('click', checkOrWakeServer);
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
     try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
@@ -202,7 +255,7 @@
         if(room) { try { await room.dispose(); } catch(_){} }
         if(context) { try { context.dispose(); } catch(_){} }
         room=null; context=null; me=null;
-      } finally { busy=false; joinBtn.disabled=!!room; createRoomBtn.disabled=!!room; }
+      } finally { busy=false; joinBtn.disabled=!serverReady || !!room; createRoomBtn.disabled=!serverReady || !!room; }
     }
     async function leave() {
       log('info', 'Đang rời phòng');
