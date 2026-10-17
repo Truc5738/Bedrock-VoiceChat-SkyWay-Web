@@ -24,7 +24,6 @@ jobs:
       - name: Build Paper plugin and Java voice client
         run: |
           gradle build --no-daemon
-          gradle :voice-client:build --no-daemon
       - name: Upload plugin jar
         uses: actions/upload-artifact@v4
         with:
