@@ -110,3 +110,16 @@ A polished project wiki is maintained in [docs/wiki](docs/wiki/Home.md).
 - [Protocol](docs/wiki/Protocol.md)
 - [Architecture](docs/wiki/Architecture.md)
 - [Troubleshooting](docs/wiki/Troubleshooting.md)
+
+
+## Bedrock Voice web client
+
+A browser-based SkyWay voice client is available at [index.html](index.html). It is intended to run beside Minecraft Bedrock on Android or another device.
+
+- Uses SkyWay WebRTC audio rooms; no custom WebSocket audio transport is implemented.
+- The SkyWay SDK may use WebSocket for signaling, and WebRTC may use UDP or a fallback route depending on the network.
+- Paste a short-lived SkyWay Auth Token into the page. Never put a SkyWay Secret Key in public client code.
+- GitHub Pages serves the static client only. A secure token-issuing backend must be configured separately for production.
+- The client does not automatically read Minecraft world/player positions, so proximity audio needs an additional trusted position bridge.
+
+The GitHub Pages workflow is defined in `.github/workflows/deploy-pages.yml`. If Pages has not been enabled for this repository, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source.
