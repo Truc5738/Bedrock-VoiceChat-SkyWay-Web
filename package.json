@@ -10,6 +10,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@skyway-sdk/token": "^2.4.1"
+    "@skyway-sdk/token": "^2.1.5"
   }
 }
