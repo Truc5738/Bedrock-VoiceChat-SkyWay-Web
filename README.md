@@ -114,7 +114,7 @@ A polished project wiki is maintained in [docs/wiki](docs/wiki/Home.md).
 
 ## Bedrock Voice web client
 
-A browser-based SkyWay voice client is available at [index.html](index.html). It is intended to run beside Minecraft Bedrock on Android or another device.
+A browser-based SkyWay voice client is available at [web/index.html](web/index.html). It is intended to run beside Minecraft Bedrock on Android or another device.
 
 - Uses SkyWay WebRTC audio rooms; no custom WebSocket audio transport is implemented.
 - The SkyWay SDK may use WebSocket for signaling, and WebRTC may use UDP or a fallback route depending on the network.
