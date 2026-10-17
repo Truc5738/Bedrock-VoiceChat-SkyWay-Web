@@ -19,8 +19,9 @@
     <section class="panel">
       <div class="eyebrow">VOICE ROOM</div><h2>Kết nối với bạn bè</h2>
       <label for="room">Mã phòng</label><input id="room" maxlength="80" value="survival-vn" autocomplete="off" placeholder="Ví dụ: survival-vn">
+      <div class="row" style="margin-top:8px"><button id="newRoom" type="button" class="secondary">🎲 Tạo mã phòng</button><button id="copyRoom" type="button" class="secondary">📋 Sao chép mã</button></div>
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Tên của bạn">
-      <label for="token">SkyWay Auth Token</label><input id="token" type="password" autocomplete="off" placeholder="Dán token có quyền join/publish/subscribe">
+      <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán token có quyền join/publish/subscribe"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
       <p class="note">Token chỉ được giữ trong bộ nhớ của trang khi đang mở; không lưu vào GitHub hoặc local storage.</p>
       <div class="actions"><button id="join">Tham gia phòng</button><button id="leave" class="secondary" disabled>Rời phòng</button></div>
       <div class="status" role="status" aria-live="polite"><span id="dot" class="dot"></span><span id="status">Chưa kết nối. Nhập token rồi tham gia phòng.</span></div>
@@ -31,7 +32,9 @@
     </section>
     <section class="panel">
       <div class="eyebrow">AUDIO CONTROLS</div><h2>Điều khiển âm thanh</h2>
-      <div class="row"><button id="mic" class="secondary" disabled>🎙 Tắt mic</button><button id="sound" class="secondary">🔊 Âm thanh bật</button></div>
+      <div class="row"><button id="mic" class="secondary" disabled>🎙 Bật mic</button><button id="sound" class="secondary">🔊 Âm thanh bật</button></div>
+      <div style="margin-top:10px"><button id="ptt" class="secondary" disabled style="width:100%;touch-action:none">🎧 Giữ để nói</button></div>
+      <p class="note">Micro mặc định tắt khi vào phòng. Giữ nút này để nói, thả tay ra sẽ tắt micro lại.</p>
       <p class="note">Cho phép trình duyệt dùng micro khi được hỏi. Trên Android, hãy giữ tab này hoạt động để âm thanh ổn định hơn.</p>
     </section>
     <section class="panel">
@@ -46,9 +49,11 @@
     const $ = (id) => document.getElementById(id);
     const roomInput = $('room'), nickInput = $('nickname'), tokenInput = $('token');
     const joinBtn = $('join'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
+    const newRoomBtn = $('newRoom'), copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
-    let muted = false, soundOn = true, busy = false;
+    let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
+    try { roomInput.value=localStorage.getItem('bedrockVoice.room')||roomInput.value; nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
     const subscriptions = new Map(), audioElements = new Map(), memberNames = new Map();
 
     function status(message, live=false) { statusEl.textContent = message; dot.classList.toggle('live', live); }
@@ -80,6 +85,7 @@
     }
     async function join() {
       if (busy || room) return;
+      try { localStorage.setItem('bedrockVoice.room',roomInput.value.trim()); localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
       const roomName=roomInput.value.trim(), token=tokenInput.value.trim();
       if (!roomName || !token) { status('Hãy nhập mã phòng và SkyWay Auth Token.'); return; }
       busy=true; joinBtn.disabled=true; status('Đang xin quyền micro và kết nối…');
@@ -92,6 +98,7 @@
         memberNames.set(me.id,nickInput.value.trim() || 'Bạn');
         localAudio=await sdk.SkyWayStreamFactory.createMicrophoneAudioStream();
         audioPublication=await me.publish(localAudio);
+        await audioPublication.disable(); muted=true;
         room.publications.forEach(subscribePublication);
         room.onStreamPublished.add((event)=>subscribePublication(event.publication));
         room.onStreamUnpublished.add((event)=>{
@@ -100,8 +107,8 @@
         });
         room.onMemberJoined.add(()=>renderPeople());
         room.onMemberLeft.add(()=>renderPeople());
-        leaveBtn.disabled=false; micBtn.disabled=false; micBtn.textContent='🎙 Tắt mic';
-        status('Đã vào phòng "'+roomName+'". Micro đang bật.',true); renderPeople();
+        leaveBtn.disabled=false; micBtn.disabled=false; pttBtn.disabled=false; micBtn.textContent='🎙 Bật mic';
+        status('Đã vào phòng "'+roomName+'". Micro mặc định đang tắt để bảo vệ riêng tư.',true); renderPeople();
         tokenInput.value='';
       } catch(error) {
         console.error(error); status('Kết nối thất bại: '+(error?.message || String(error)));
@@ -111,14 +118,14 @@
       } finally { busy=false; joinBtn.disabled=!!room; }
     }
     async function leave() {
-      leaveBtn.disabled=true; micBtn.disabled=true;
+      leaveBtn.disabled=true; micBtn.disabled=true; pttBtn.disabled=true; pttActive=false; pttBtn.textContent='🎧 Giữ để nói';
       try { if(me) await me.leave(); } catch(error) { console.warn(error); }
       try { if(room) await room.dispose(); } catch(error) { console.warn(error); }
       try { if(context) context.dispose(); } catch(error) { console.warn(error); }
       try { if(localAudio && localAudio.stop) localAudio.stop(); } catch(_){}
       audioElements.forEach(audio=>audio.remove()); audioElements.clear(); subscriptions.clear(); memberNames.clear();
       room=null; context=null; me=null; localAudio=null; audioPublication=null; muted=false;
-      joinBtn.disabled=false; micBtn.textContent='🎙 Tắt mic'; peopleEl.innerHTML='<div class="empty">Chưa có kết nối nào.</div>'; countEl.textContent='(0)';
+      joinBtn.disabled=false; micBtn.textContent='🎙 Bật mic'; pttBtn.disabled=true; pttBtn.textContent='🎧 Giữ để nói'; peopleEl.innerHTML='<div class="empty">Chưa có kết nối nào.</div>'; countEl.textContent='(0)';
       status('Đã rời phòng.'); 
     }
     async function toggleMic() {
@@ -128,6 +135,12 @@
         else { await audioPublication.enable(); muted=false; micBtn.textContent='🎙 Tắt mic'; status('Micro đang bật.',true); }
       } catch(error) { status('Không đổi được trạng thái micro: '+(error?.message || error)); }
     }
+    newRoomBtn.addEventListener('click',()=>{const chars='abcdefghjkmnpqrstuvwxyz23456789';let code='survival-';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];roomInput.value=code;try{localStorage.setItem('bedrockVoice.room',code)}catch(_){}status('Đã tạo mã phòng mới. Gửi mã này cho bạn bè.');});
+    copyRoomBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(roomInput.value.trim());status('Đã sao chép mã phòng.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
+    showTokenBtn.addEventListener('click',()=>{const visible=tokenInput.type==='password';tokenInput.type=visible?'text':'password';showTokenBtn.textContent=visible?'Ẩn':'Hiện';});
+    async function pushToTalkStart(event){if(event&&event.cancelable)event.preventDefault();if(!audioPublication||pttActive)return;pttActive=true;pttWasMuted=muted;try{if(muted){await audioPublication.enable();muted=false;micBtn.textContent='🎙 Tắt mic';}pttBtn.textContent='🟢 Đang nói… thả để tắt';pttBtn.classList.remove('secondary')}catch(error){pttActive=false;status('Không bật được micro: '+(error?.message||error));}}
+    async function pushToTalkEnd(){if(!pttActive)return;pttActive=false;try{if(pttWasMuted&&audioPublication){await audioPublication.disable();muted=true;micBtn.textContent='🎙 Bật mic';}}catch(error){status('Không tắt được micro: '+(error?.message||error));}pttBtn.textContent='🎧 Giữ để nói';pttBtn.classList.add('secondary');}
+    pttBtn.addEventListener('pointerdown',pushToTalkStart);pttBtn.addEventListener('pointerup',pushToTalkEnd);pttBtn.addEventListener('pointercancel',pushToTalkEnd);pttBtn.addEventListener('lostpointercapture',pushToTalkEnd);window.addEventListener('pointerup',pushToTalkEnd);
     joinBtn.addEventListener('click',join); leaveBtn.addEventListener('click',leave); micBtn.addEventListener('click',toggleMic);
     soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; audioElements.forEach(audio=>audio.muted=!soundOn); soundBtn.textContent=soundOn?'🔊 Âm thanh bật':'🔇 Âm thanh tắt'; });
     window.addEventListener('beforeunload',()=>{ try { if(me) me.leave(); if(room) room.dispose(); if(context) context.dispose(); } catch(_){} });
