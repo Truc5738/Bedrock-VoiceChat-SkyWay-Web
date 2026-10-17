@@ -1,7 +1,10 @@
 import http from "node:http";
+import { SkyWayAuthToken, nowInSec, uuidV4 } from "@skyway-sdk/token";
 
 const PORT = Number(process.env.PORT || 10000);
 const AXIOM_TOKEN = process.env.AXIOM_API_TOKEN || "";
+const SKYWAY_APP_ID = process.env.SKYWAY_APP_ID || "";
+const SKYWAY_SECRET_KEY = process.env.SKYWAY_SECRET_KEY || "";
 const AXIOM_DATASET = process.env.AXIOM_DATASET || "bedrock-voicechat-logs";
 const AXIOM_DOMAIN = process.env.AXIOM_DOMAIN || "us-east-1.aws.edge.axiom.co";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://truc5738.github.io").split(",").map(v => v.trim()).filter(Boolean);
@@ -83,7 +86,37 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   const path = new URL(req.url || "/", "http://localhost").pathname;
-  if (req.method === "GET" && path === "/health") return json(res, 200, { ok: true, service: "bedrock-voicechat-log-api", axiomConfigured: Boolean(AXIOM_TOKEN), timestamp: new Date().toISOString() }, origin);
+  if (req.method === "GET" && path === "/health") return json(res, 200, { ok: true, service: "bedrock-voicechat-log-api", axiomConfigured: Boolean(AXIOM_TOKEN), skywayConfigured: Boolean(SKYWAY_APP_ID && SKYWAY_SECRET_KEY), timestamp: new Date().toISOString() }, origin);
+  if (req.method === "GET" && path === "/skyway-token") {
+    if (!origin || !SKYWAY_APP_ID || !SKYWAY_SECRET_KEY) return json(res, 503, { error: "skyway_not_configured" }, origin);
+    if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
+    try {
+      const issuedAt = nowInSec();
+      const authToken = new SkyWayAuthToken({
+        jti: uuidV4(),
+        iat: issuedAt,
+        exp: issuedAt + 60 * 60,
+        version: 3,
+        scope: {
+          appId: SKYWAY_APP_ID,
+          turn: { enabled: true },
+          analytics: { enabled: true },
+          rooms: [{
+            id: "*",
+            name: "*",
+            methods: ["create", "close", "updateMetadata"],
+            sfu: { enabled: true, maxSubscribersLimit: 99 },
+            member: { id: "*", name: "*", methods: ["publish", "subscribe", "updateMetadata"] }
+          }]
+        }
+      });
+      const token = authToken.encode(SKYWAY_SECRET_KEY);
+      return json(res, 200, { token, expiresAt: issuedAt + 60 * 60 }, origin);
+    } catch (error) {
+      console.error("SkyWay token issue error:", error.message);
+      return json(res, 500, { error: "token_issue_failed" }, origin);
+    }
+  }
   if (req.method !== "POST" || path !== "/log") return json(res, 404, { error: "not_found" }, origin);
   if (!origin) return json(res, 403, { error: "origin_not_allowed" });
   if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
