@@ -63,16 +63,50 @@
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     const logsEl = $('logs'), logCountEl = $('logCount');
     const logEntries = [];
+    const LOG_API = 'https://bedrock-voicechat-log-api.onrender.com';
+    const logSessionId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    const remoteQueue = [];
+    let remoteFlushTimer = null;
+    let remoteLoggingActive = true;
+    function sendRemote(payload, useBeacon = false) {
+      if (!LOG_API || !remoteLoggingActive && payload.kind !== 'stop') return;
+      const body = JSON.stringify(payload);
+      if (useBeacon && navigator.sendBeacon) {
+        try { return navigator.sendBeacon(LOG_API + '/log', new Blob([body], {type:'application/json'})); } catch (_) {}
+      }
+      return fetch(LOG_API + '/log', {method:'POST', headers:{'Content-Type':'application/json'}, body, keepalive: useBeacon}).catch(() => {});
+    }
+    function flushRemoteLogs() {
+      if (!remoteLoggingActive || !remoteQueue.length) return;
+      const events = remoteQueue.splice(0, 30);
+      sendRemote({kind:'logs', sessionId:logSessionId, events:events.map(e=>({level:e.level,message:e.message,detail:e.detail,page:location.pathname,userAgent:navigator.userAgent}))});
+    }
     function log(level, message, detail) {
       const stamp = new Date().toLocaleTimeString();
       const extra = detail ? ' ' + String(detail).replace(/[\\r\\n]+/g, ' ').slice(0, 500) : '';
       const entry = '[' + stamp + '] [' + level.toUpperCase() + '] ' + message + extra;
       logEntries.push(entry);
+      remoteQueue.push({level, message:String(message).slice(0,500), detail:String(detail || '').replace(/[\\r\\n]+/g, ' ').slice(0,500)});
+      if (remoteQueue.length > 90) remoteQueue.shift();
       if (logEntries.length > 150) logEntries.shift();
       logsEl.textContent = logEntries.join('\\n');
       logCountEl.textContent = '(' + logEntries.length + ')';
       logsEl.scrollTop = logsEl.scrollHeight;
       if (level === 'error') console.error(entry); else if (level === 'warn') console.warn(entry); else console.info(entry);
+      if (remoteQueue.length >= 5) flushRemoteLogs();
+      else if (!remoteFlushTimer) remoteFlushTimer = setTimeout(() => {remoteFlushTimer=null;flushRemoteLogs();}, 2500);
+    }
+    const heartbeatTimer = setInterval(() => {
+      if (remoteLoggingActive) sendRemote({kind:'heartbeat',sessionId:logSessionId});
+    }, 30000);
+    sendRemote({kind:'heartbeat',sessionId:logSessionId});
+    function stopRemoteLogging() {
+      if (!remoteLoggingActive) return;
+      flushRemoteLogs();
+      remoteLoggingActive = false;
+      clearInterval(heartbeatTimer);
+      if (remoteFlushTimer) clearTimeout(remoteFlushTimer);
+      sendRemote({kind:'stop',sessionId:logSessionId}, true);
     }
     $('copyLogs').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(logEntries.join('\\n')); log('info', 'Đã sao chép nhật ký.'); }
@@ -192,7 +226,8 @@
     pttBtn.addEventListener('pointerdown',pushToTalkStart);pttBtn.addEventListener('pointerup',pushToTalkEnd);pttBtn.addEventListener('pointercancel',pushToTalkEnd);pttBtn.addEventListener('lostpointercapture',pushToTalkEnd);window.addEventListener('pointerup',pushToTalkEnd);
     joinBtn.addEventListener('click',()=>join()); leaveBtn.addEventListener('click',leave); micBtn.addEventListener('click',toggleMic);
     soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; audioElements.forEach(audio=>audio.muted=!soundOn); soundBtn.textContent=soundOn?'🔊 Âm thanh bật':'🔇 Âm thanh tắt'; });
-    window.addEventListener('beforeunload',()=>{ try { if(me) me.leave(); if(room) room.dispose(); if(context) context.dispose(); } catch(_){} });
+    window.addEventListener('pagehide', stopRemoteLogging);
+    window.addEventListener('beforeunload',()=>{ stopRemoteLogging(); try { if(me) me.leave(); if(room) room.dispose(); if(context) context.dispose(); } catch(_){} });
   })();
   </script>
 </body>
