@@ -18,8 +18,7 @@
     <header class="brand"><div class="logo">B</div><div><h1>Bedrock Voice</h1><p>Voice rooms for Minecraft · Powered by SkyWay</p></div></header>
     <section class="panel">
       <div class="eyebrow">VOICE ROOM</div><h2>Kết nối với bạn bè</h2>
-      <label for="room">Mã phòng</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" value="1234" autocomplete="off" placeholder="4 chữ số">
-      <div class="row" style="margin-top:8px"><button id="newRoom" type="button" class="secondary">🎲 Tạo mã phòng</button><button id="copyRoom" type="button" class="secondary">📋 Sao chép mã</button></div>
+      <label for="room">Mã phòng (tự tạo ngẫu nhiên)</label><div class="row"><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" value="" autocomplete="off" placeholder="Mã 4 chữ số" readonly><button id="copyRoom" type="button" class="secondary" style="flex:0 0 auto">📋 Sao chép</button></div>
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Tên của bạn">
       <label for="token">SkyWay Auth Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Dán token có quyền join/publish/subscribe"><button id="showToken" type="button" class="secondary" style="flex:0 0 auto">Hiện</button></div>
       <p class="note">Token chỉ được giữ trong bộ nhớ của trang khi đang mở; không lưu vào GitHub hoặc local storage.</p>
@@ -49,11 +48,13 @@
     const $ = (id) => document.getElementById(id);
     const roomInput = $('room'), nickInput = $('nickname'), tokenInput = $('token');
     const joinBtn = $('join'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
-    const newRoomBtn = $('newRoom'), copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt');
+    const copyRoomBtn = $('copyRoom'), showTokenBtn = $('showToken'), pttBtn = $('ptt');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
-    try { roomInput.value=localStorage.getItem('bedrockVoice.room')||roomInput.value; nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
+    try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
+    function randomRoomCode() { const values = new Uint32Array(1); if (window.crypto && window.crypto.getRandomValues) { window.crypto.getRandomValues(values); return String(1000 + (values[0] % 9000)); } return String(Math.floor(1000 + Math.random() * 9000)); }
+    roomInput.value = randomRoomCode();
     const subscriptions = new Map(), audioElements = new Map(), memberNames = new Map();
 
     function status(message, live=false) { statusEl.textContent = message; dot.classList.toggle('live', live); }
@@ -85,10 +86,10 @@
     }
     async function join() {
       if (busy || room) return;
-      try { localStorage.setItem('bedrockVoice.room',roomInput.value.trim()); localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
+      try { localStorage.setItem('bedrockVoice.nickname',nickInput.value.trim()); } catch (_) {}
       const roomName=roomInput.value.trim(), token=tokenInput.value.trim();
       if (!/^[0-9]{4}$/.test(roomName)) { status('Mã phòng phải gồm đúng 4 chữ số.'); return; }
-      if (!roomName || !token) { status('Hãy nhập mã phòng và SkyWay Auth Token.'); return; }
+      if (!roomName || !token) { status('Thiếu mã phòng hoặc SkyWay Auth Token.'); return; }
       busy=true; joinBtn.disabled=true; status('Đang xin quyền micro và kết nối…');
       try {
         const sdk=window.skyway_room;
@@ -136,7 +137,6 @@
         else { await audioPublication.enable(); muted=false; micBtn.textContent='🎙 Tắt mic'; status('Micro đang bật.',true); }
       } catch(error) { status('Không đổi được trạng thái micro: '+(error?.message || error)); }
     }
-    newRoomBtn.addEventListener('click',()=>{let code;try{const rooms=JSON.parse(localStorage.getItem('bedrockVoice.recentRooms')||'[]');const used=new Set(rooms.map(String));for(let tries=0;tries<100;tries++){const candidate=String(Math.floor(1000+Math.random()*9000));if(!used.has(candidate)){code=candidate;break;}}}catch(_){}if(!code)code=String(Math.floor(1000+Math.random()*9000));roomInput.value=code;try{localStorage.setItem('bedrockVoice.room',code)}catch(_){}status('Mã phòng 4 số đã tạo. Gửi mã này cho bạn bè.');});
     copyRoomBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(roomInput.value.trim());status('Đã sao chép mã phòng.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
     showTokenBtn.addEventListener('click',()=>{const visible=tokenInput.type==='password';tokenInput.type=visible?'text':'password';showTokenBtn.textContent=visible?'Ẩn':'Hiện';});
     async function pushToTalkStart(event){if(event&&event.cancelable)event.preventDefault();if(!audioPublication||pttActive)return;pttActive=true;pttWasMuted=muted;try{if(muted){await audioPublication.enable();muted=false;micBtn.textContent='🎙 Tắt mic';}pttBtn.textContent='🟢 Đang nói… thả để tắt';pttBtn.classList.remove('secondary')}catch(error){pttActive=false;status('Không bật được micro: '+(error?.message||error));}}
