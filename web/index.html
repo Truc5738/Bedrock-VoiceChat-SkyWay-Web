@@ -233,7 +233,7 @@
         log('info', 'Đã tham gia phòng', 'memberId=' + me.id);
         memberNames.set(me.id,nickInput.value.trim() || 'Bạn');
         log('info', 'Đang yêu cầu quyền microphone');
-        localAudio=await sdk.SkyWayStreamFactory.createMicrophoneAudioStream();
+        localAudio=await sdk.SkyWayStreamFactory.createMicrophoneAudioStream({stopTrackWhenDisabled:false});
         log('info', 'Đã lấy được microphone');
         audioPublication=await me.publish(localAudio);
         log('info', 'Đã publish audio');
@@ -270,11 +270,37 @@
       status('Đã rời phòng.'); log('info', 'Đã dọn dẹp kết nối'); 
     }
     async function toggleMic() {
-      if(!audioPublication) return;
+      if(!audioPublication || !localAudio) { status('Chưa có microphone được publish. Hãy rời phòng rồi vào lại.'); return; }
+      micBtn.disabled=true;
       try {
-        if(!muted) { await audioPublication.disable(); muted=true; micBtn.textContent='🎙 Bật mic'; status('Micro đã tắt.',true); }
-        else { await audioPublication.enable(); muted=false; micBtn.textContent='🎙 Tắt mic'; status('Micro đang bật.',true); }
-      } catch(error) { status('Không đổi được trạng thái micro: '+(error?.message || error)); }
+        const isCurrentlyEnabled = audioPublication.state === 'enabled';
+        if(isCurrentlyEnabled) {
+          await audioPublication.disable();
+          muted=true;
+          micBtn.textContent='🎙 Bật mic';
+          log('info','Publication audio đã tắt', 'state='+audioPublication.state+'; track='+localAudio.track.readyState);
+          status('Micro đã tắt.',true);
+        } else {
+          if(localAudio.track.readyState !== 'live') {
+            log('warn','Track microphone không còn live; đang tạo lại stream');
+            const replacement = await window.skyway_room.SkyWayStreamFactory.createMicrophoneAudioStream({stopTrackWhenDisabled:false});
+            audioPublication.replaceStream(replacement);
+            try { if(localAudio && localAudio !== replacement) localAudio.release(); } catch(_) {}
+            localAudio = replacement;
+          }
+          await audioPublication.enable();
+          muted=false;
+          micBtn.textContent='🎙 Tắt mic';
+          log('info','Publication audio đã bật', 'state='+audioPublication.state+'; track='+localAudio.track.readyState+'; muted='+localAudio.track.muted);
+          if(audioPublication.state !== 'enabled' || localAudio.track.readyState !== 'live') {
+            throw new Error('Publication hoặc microphone chưa ở trạng thái phát âm thanh. state='+audioPublication.state+', track='+localAudio.track.readyState);
+          }
+          status('Micro đang bật. Hãy nói thử; kiểm tra biểu tượng mic của trình duyệt nếu không truyền tiếng.',true);
+        }
+      } catch(error) {
+        log('error','Không thể bật/tắt microphone',error?.message || error);
+        status('Không đổi được trạng thái micro: '+(error?.message || error));
+      } finally { micBtn.disabled=!room; }
     }
     createRoomBtn.addEventListener('click',()=>{if(busy||room)return;const code=randomRoomCode();roomInput.value=code;currentCodeEl.textContent=code;join(code);});
     copyRoomBtn.addEventListener('click',async()=>{const code=currentCodeEl.textContent==='----'?roomInput.value.trim():currentCodeEl.textContent;if(!/^[0-9]{4}$/.test(code)){status('Chưa có mã phòng để sao chép.');return;}try{await navigator.clipboard.writeText(code);status('Đã sao chép mã phòng '+code+'.')}catch(_){roomInput.focus();roomInput.select();status('Mã phòng đã được chọn. Hãy sao chép thủ công.')}});
