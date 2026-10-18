@@ -71,16 +71,16 @@
     <section class="panel" id="musicPanel">
       <div class="eyebrow">MUSIC PLAYER</div>
       <h2>Nghe nhạc <span class="note" style="font-weight:500">· Liquid Glass</span></h2>
-      <p class="note">Tìm bài hát theo tên hoặc ca sĩ, hoặc dán liên kết Spotify / Apple Music. Trình phát nhúng không phát video YouTube.</p>
+      <p class="note">Tìm nhạc qua SoundCloud API và YouTube Data API v3. YouTube chỉ dùng để tìm kiếm, không hiển thị video.</p>
       <label for="musicSearch">Tìm tên bài hát / ca sĩ</label>
       <div class="row"><input id="musicSearch" type="search" autocomplete="off" placeholder="Ví dụ: Sơn Tùng M-TP"><button id="searchMusic" type="button">🔎 Tìm nhạc</button></div>
       <div id="musicResults" class="people" style="margin-top:10px"></div>
-      <label for="musicUrl">Hoặc dán liên kết Spotify / Apple Music</label>
-      <input id="musicUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://open.spotify.com/...">
+      <label for="musicUrl">Hoặc dán liên kết SoundCloud</label>
+      <input id="musicUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://soundcloud.com/...">
       <div class="row" style="margin-top:10px"><button id="loadMusic" type="button">▶ Mở nhạc</button><button id="clearMusic" type="button" class="secondary">✕ Đóng trình phát</button></div>
       <div id="musicStatus" class="status" role="status" aria-live="polite"><span class="dot"></span><span>Chưa mở trình phát.</span></div>
       <div id="musicPlayer" style="margin-top:12px"></div>
-      <p class="note">Kết quả tìm kiếm lấy từ Apple iTunes Search, tối đa 50 bài mỗi lượt. Nhạc phát trên thiết bị của từng người, không truyền âm thanh nhạc vào voice chat và chưa đồng bộ phát/tạm dừng giữa mọi người. Spotify hoặc Apple Music có thể yêu cầu đăng nhập hay gói dịch vụ phù hợp.</p>
+      <p class="note">Tìm kiếm SoundCloud và YouTube cần API key được cấu hình an toàn ở backend. YouTube Data API v3 chỉ trả kết quả tìm kiếm, không cung cấp luồng audio trực tiếp. Nhạc phát trên thiết bị của từng người, không truyền vào voice chat.</p>
     </section>
     <section class="panel" id="logPanel">
       <div class="eyebrow">DEBUG CONSOLE</div>
@@ -368,18 +368,13 @@
       try { url = new URL(rawUrl.trim()); } catch (_) { throw new Error('Hãy dán một liên kết hợp lệ.'); }
       if (url.protocol !== 'https:') throw new Error('Chỉ chấp nhận liên kết HTTPS.');
       const host = url.hostname.toLowerCase().replace(/^www\\./, '');
-      if (['youtube.com','m.youtube.com','youtu.be','music.youtube.com','youtube-nocookie.com'].includes(host)) throw new Error('Để tránh phát video, YouTube chưa được nhúng. Hãy tìm bài hát ở phía trên hoặc dùng Spotify / Apple Music.');
-      if (host === 'open.spotify.com' || host === 'spotify.com') {
-        const parts = url.pathname.split('/').filter(Boolean);
-        const i = parts.findIndex(part => ['track','album','playlist','episode','show'].includes(part));
-        if (i < 0 || !parts[i+1]) throw new Error('Dùng liên kết Spotify tới bài hát, album, playlist hoặc podcast.');
-        return {src:'https://open.spotify.com/embed/' + parts.slice(i,i+2).join('/'), title:'Spotify player', provider:'Spotify'};
+      if (['youtube.com','m.youtube.com','youtu.be','music.youtube.com','youtube-nocookie.com'].includes(host)) throw new Error('YouTube chỉ dùng để tìm kiếm. YouTube Data API v3 không cung cấp luồng audio trực tiếp.');
+      if (host === 'soundcloud.com' || host === 'm.soundcloud.com') {
+        const path = url.pathname.split('/').filter(Boolean);
+        if (path.length < 2) throw new Error('Dán liên kết SoundCloud tới track hoặc playlist.');
+        return {src:'https://w.soundcloud.com/player/?url=' + encodeURIComponent(url.origin + url.pathname) + '&auto_play=false&visual=false', title:'SoundCloud audio player', provider:'SoundCloud'};
       }
-      if (host === 'music.apple.com' || host === 'itunes.apple.com') {
-        if (!url.pathname.split('/').filter(Boolean).some(part => /^(album|playlist|song|music-video|station|curator)$/.test(part))) throw new Error('Dùng liên kết Apple Music tới bài hát, album hoặc playlist.');
-        return {src:'https://embed.music.apple.com' + url.pathname + url.search, title:'Apple Music player', provider:'Apple Music'};
-      }
-      throw new Error('Liên kết chưa được hỗ trợ. Hãy dùng Spotify hoặc Apple Music.');
+      throw new Error('Chỉ hỗ trợ liên kết SoundCloud; YouTube chỉ dùng để tìm kiếm.');
     }
     function openMusicUrl(rawUrl) {
       const embed = makeMusicEmbed(rawUrl);
@@ -396,21 +391,7 @@
       const button = $('searchMusic'); button.disabled = true; musicResults.replaceChildren();
       const loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = 'Đang tìm bài hát…'; musicResults.append(loading);
       try {
-        const endpoint = 'https://itunes.apple.com/search?term=' + encodeURIComponent(term) + '&entity=song&limit=50&country=VN';
-        const response = await fetch(endpoint); if (!response.ok) throw new Error('Lỗi máy chủ tìm kiếm: HTTP ' + response.status);
-        const data = await response.json(); musicResults.replaceChildren();
-        if (!data.results || !data.results.length) { const empty = document.createElement('div'); empty.className='empty'; empty.textContent='Không tìm thấy bài hát phù hợp.'; musicResults.append(empty); setMusicStatus('Không có kết quả cho: ' + term); return; }
-        data.results.forEach(track => {
-          const row = document.createElement('div'); row.className='person';
-          const cover = document.createElement('img'); cover.src=track.artworkUrl60 || ''; cover.alt=''; cover.loading='lazy'; cover.style.cssText='width:42px;height:42px;border-radius:9px;object-fit:cover;background:#1b2a20;flex:none';
-          const info = document.createElement('div'); info.style.cssText='flex:1;min-width:0';
-          const title = document.createElement('strong'); title.textContent=track.trackName || 'Bài hát không tên'; title.style.cssText='display:block;overflow-wrap:anywhere';
-          const artist = document.createElement('small'); artist.textContent=(track.artistName || 'Nghệ sĩ không rõ') + (track.collectionName ? ' · ' + track.collectionName : ''); info.append(title,artist);
-          const play = document.createElement('button'); play.type='button'; play.textContent='▶ Nghe'; play.style.cssText='flex:none;min-height:40px;padding:8px 11px';
-          play.addEventListener('click', () => { try { openMusicUrl(track.trackViewUrl); } catch(error) { setMusicStatus(error.message || 'Không mở được bài hát.'); } });
-          row.append(cover,info,play); musicResults.append(row);
-        });
-        setMusicStatus('Tìm thấy ' + data.results.length + ' bài hát. Bấm “Nghe” để mở trình phát.', true); log('info','Tìm nhạc thành công','từ khóa='+term+'; kết quả='+data.results.length);
+        resultsEl.innerHTML = '<p class="note">Tìm kiếm SoundCloud / YouTube API đang chờ cấu hình API key ở backend Render. YouTube Data API v3 chỉ tìm metadata; SoundCloud chỉ phát được track có stream hợp lệ.</p>';
       } catch(error) { musicResults.replaceChildren(); const fail=document.createElement('div'); fail.className='empty'; fail.textContent='Không thể tìm nhạc. Hãy kiểm tra Internet rồi thử lại.'; musicResults.append(fail); setMusicStatus(error.message || 'Không thể tìm nhạc.'); log('warn','Tìm nhạc thất bại',error.message || error); }
       finally { button.disabled=false; }
     }
