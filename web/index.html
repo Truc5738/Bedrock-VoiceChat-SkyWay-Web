@@ -129,46 +129,53 @@
       createRoomBtn.disabled = !ready || !!room || busy;
       joinBtn.disabled = !ready || !!room || busy;
     }
-    async function checkOrWakeServer() {
+    async function checkBackendOnce(timeoutMs=8000) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(LOG_API + '/health', {method:'GET', cache:'no-store', signal:controller.signal});
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (!data || !data.ok) throw new Error('Phản hồi health không hợp lệ');
+        if (!data.skywayConfigured) throw new Error('Backend chạy nhưng thiếu cấu hình SkyWay');
+        setServerState('Máy chủ đang hoạt động. Có thể tạo phòng hoặc tham gia phòng.', true);
+        log('info', 'Render backend đã sẵn sàng');
+        return true;
+      } finally { clearTimeout(timeout); }
+    }
+    async function runServerCheck(wake=false) {
       if (serverCheckBusy) return;
       serverCheckBusy = true;
       wakeServerBtn.disabled = true; checkServerBtn.disabled = true;
-      setServerState('Đang đánh thức / kiểm tra Render backend…');
-      const deadline = Date.now() + 90000;
-      let lastError = 'Máy chủ chưa phản hồi';
+      setServerState(wake ? 'Đang đánh thức Render…' : 'Đang kiểm tra máy chủ…');
       try {
-        while (Date.now() < deadline) {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
-          try {
-            const response = await fetch(LOG_API + '/health', {method:'GET', cache:'no-store', signal:controller.signal});
-            if (response.ok) {
-              const data = await response.json();
-              if (data.ok && data.skywayConfigured) {
-                setServerState('Máy chủ đang hoạt động. Có thể tạo phòng hoặc tham gia phòng.', true);
-                log('info', 'Render backend đã sẵn sàng');
-                return;
-              }
-              if (data.ok && !data.skywayConfigured) {
-                lastError = 'Backend hoạt động nhưng SkyWay chưa được cấu hình.';
-                break;
-              }
-              lastError = 'Backend phản hồi nhưng trạng thái chưa hợp lệ.';
-            } else lastError = 'Backend phản hồi HTTP ' + response.status;
-          } catch (error) {
-            lastError = error?.name === 'AbortError' ? 'Đang chờ Render khởi động…' : 'Đang chờ Render phản hồi…';
-          } finally { clearTimeout(timeout); }
-          setServerState(lastError + ' Thử lại tự động…');
-          await new Promise(resolve => setTimeout(resolve, 2500));
+        if (!wake) {
+          try { await checkBackendOnce(8000); }
+          catch (error) {
+            const message = error?.name === 'AbortError' ? 'Kiểm tra quá 8 giây. Máy chủ có thể đang ngủ.' : 'Kiểm tra thất bại: ' + (error?.message || error);
+            setServerState(message + ' Bấm “BẬT MÁY CHỦ” để thử đánh thức.');
+            log('warn', 'Kiểm tra Render thất bại', message);
+          }
+          return;
         }
-        setServerState(lastError + ' Hãy bấm “BẬT MÁY CHỦ” để thử lại.');
+        const deadline = Date.now() + 90000;
+        let lastError = 'Máy chủ chưa phản hồi';
+        while (Date.now() < deadline) {
+          try { await checkBackendOnce(12000); return; }
+          catch (error) {
+            lastError = error?.name === 'AbortError' ? 'Render vẫn đang khởi động…' : 'Đang chờ Render: ' + (error?.message || error);
+            setServerState(lastError + ' Tự thử lại sau 3 giây…');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        }
+        setServerState(lastError + ' Đã hết 90 giây. Thử lại hoặc kiểm tra trạng thái dịch vụ Render.');
+        log('warn', 'Hết thời gian đánh thức Render', lastError);
       } finally {
-        serverCheckBusy = false;
-        wakeServerBtn.disabled = false; checkServerBtn.disabled = false;
+        serverCheckBusy = false; wakeServerBtn.disabled = false; checkServerBtn.disabled = false;
       }
     }
-    wakeServerBtn.addEventListener('click', checkOrWakeServer);
-    checkServerBtn.addEventListener('click', checkOrWakeServer);
+    wakeServerBtn.addEventListener('click', () => runServerCheck(true));
+    checkServerBtn.addEventListener('click', () => runServerCheck(false));
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
     try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
