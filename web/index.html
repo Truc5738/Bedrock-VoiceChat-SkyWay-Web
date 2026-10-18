@@ -11,6 +11,31 @@
     .wrap{width:min(720px,100%);margin:auto;padding:26px 16px 44px}.brand{display:flex;align-items:center;gap:14px;margin:4px 0 24px}.logo{width:54px;height:54px;border-radius:18px;background:linear-gradient(145deg,#b4ffca,#4ad77c);color:#092113;display:grid;place-items:center;font-size:27px;font-weight:950;box-shadow:0 8px 30px #4ad77c30}.brand h1{font-size:24px;line-height:1.15;margin:0;letter-spacing:-.04em}.brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
     .hero{padding:22px 20px 20px;background:linear-gradient(145deg,#182b20,#101812 72%);border:1px solid #355640;border-radius:26px;box-shadow:0 22px 70px #0005}.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--green);font-weight:850}.hero h2{font-size:25px;letter-spacing:-.04em;line-height:1.2;margin:7px 0 8px}.hero-copy{margin:0 0 18px;color:var(--muted);font-size:14px}.panel{background:rgba(17,26,21,.94);border:1px solid var(--line);border-radius:22px;padding:19px;margin:14px 0;box-shadow:0 16px 48px #0002}.panel h2{font-size:18px;margin:4px 0 15px}label{display:block;font-size:13px;color:var(--muted);margin:13px 0 6px}input{width:100%;background:#0a120d;color:var(--text);border:1px solid #35513e;border-radius:13px;padding:14px;font:inherit;outline:none}input:focus{border-color:var(--green);box-shadow:0 0 0 3px #8bf0ad16}.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}button{border:0;border-radius:14px;padding:13px 15px;font:inherit;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#b1ffca,#6ce995);color:#0a2112;min-height:49px}button:active{transform:scale(.985)}button.secondary{background:#1b2a20;border:1px solid #35513e;color:var(--text)}button:disabled{opacity:.42;cursor:not-allowed}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.status{display:flex;align-items:center;gap:9px;padding:12px 13px;border-radius:13px;background:#0a120d;border:1px solid #263a2c;color:var(--muted);font-size:13px;margin-top:14px}.dot{width:9px;height:9px;border-radius:100%;background:#77877a;flex:none}.dot.live{background:var(--green);box-shadow:0 0 12px #8bf0ad99}.people{display:grid;gap:8px}.person{display:flex;align-items:center;gap:10px;background:#0a120d;border:1px solid #263a2c;border-radius:13px;padding:11px 12px}.avatar{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:#244632;color:var(--green);font-weight:850}.person small{display:block;color:var(--muted)}.empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed #35513e;border-radius:14px}.note{color:var(--muted);font-size:13px}.warning{border-left:3px solid var(--gold);padding:12px;background:#282416;border-radius:0 12px 12px 0;color:#f5e7bd;font-size:13px}.footer{text-align:center;color:#718879;font-size:12px;margin-top:24px}audio{width:100%;margin-top:8px}.room-code{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#09120c;border:1px solid #35513e;border-radius:15px;padding:12px 14px;margin:15px 0}.room-code small{display:block;color:var(--muted);font-size:12px}.room-code strong{display:block;font-size:28px;letter-spacing:.2em;line-height:1.2;color:var(--green)}.room-code button{min-height:40px;padding:9px 12px}
     @media(max-width:480px){.wrap{padding:20px 13px 36px}.hero{padding:19px 16px}.hero h2{font-size:23px}.panel{padding:16px}.row{flex-direction:column}.actions{grid-template-columns:1fr 1fr}.brand h1{font-size:21px}.room-code strong{font-size:25px}}
+  
+    /* Liquid glass refresh */
+    :root{color-scheme:dark;--panel:rgba(20,28,39,.46);--line:rgba(226,240,255,.22);--text:#f5f8ff;--muted:#bac7d9;--green:#a9d8ff;--gold:#f2d48a}
+    body{background:radial-gradient(ellipse at 14% 8%,#8ba7c544 0,transparent 32%),radial-gradient(ellipse at 88% 22%,#a8a1df38 0,transparent 30%),radial-gradient(ellipse at 55% 100%,#6fc6d02b 0,transparent 38%),linear-gradient(145deg,#080b12,#151a25 52%,#090d14);background-attachment:fixed}
+    .wrap{width:min(820px,100%);padding-top:28px}
+    .brand{padding:10px 14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border-radius:22px;box-shadow:0 12px 40px #0002}
+    .logo{background:linear-gradient(145deg,#f4fbff,#a5c9ff 55%,#a7f0e3);box-shadow:0 0 28px #9ccfff44}
+    .hero,.panel{background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.045) 52%,rgba(178,205,255,.065));border:1px solid rgba(235,245,255,.21);backdrop-filter:blur(28px) saturate(155%);-webkit-backdrop-filter:blur(28px) saturate(155%);box-shadow:0 22px 70px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.13);border-radius:26px}
+    .hero{background:linear-gradient(135deg,rgba(191,218,255,.16),rgba(255,255,255,.055) 48%,rgba(190,177,255,.09))}
+    .eyebrow{color:#c0e5ff}
+    .status,.person,.room-code,.empty,pre{background:rgba(4,9,17,.27)!important;border-color:rgba(230,241,255,.15)!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+    input{background:rgba(5,10,19,.32);border-color:rgba(230,241,255,.2);box-shadow:inset 0 1px 0 #ffffff0b}
+    input:focus{border-color:#b8e2ff;box-shadow:0 0 0 3px #a8d7ff22}
+    button{background:linear-gradient(135deg,#f3f8ff,#b8d8ff 60%,#c5f1ed);color:#101927;box-shadow:0 5px 20px #91caff20,inset 0 1px 0 #fff9}
+    button.secondary{background:rgba(255,255,255,.075);border:1px solid rgba(240,247,255,.19);color:var(--text);box-shadow:inset 0 1px 0 #ffffff0a}
+    .dot.live{background:#9fffd3;box-shadow:0 0 14px #9fffd399}
+    #musicPanel{position:relative;overflow:hidden;background:linear-gradient(140deg,rgba(160,198,240,.16),rgba(255,255,255,.055) 48%,rgba(190,167,255,.13));}
+    #musicPanel:before{content:"";position:absolute;inset:-40% -15% auto;height:230px;background:radial-gradient(ellipse,rgba(172,211,255,.17),transparent 68%);pointer-events:none}
+    #musicPanel>*{position:relative}
+    #musicResults .person{align-items:center;gap:12px;transition:transform .18s ease,border-color .18s ease}
+    #musicResults .person:hover{transform:translateY(-1px);border-color:rgba(202,230,255,.4)!important}
+    #musicPlayer iframe{box-shadow:0 10px 34px #0003;border:1px solid rgba(255,255,255,.15)!important}
+    .warning{background:rgba(88,72,34,.2);border-left-color:#ffe5a1;color:#fff0c8}
+    @media(prefers-reduced-motion:no-preference){button,.person{transition:transform .15s ease,filter .15s ease}button:hover{filter:brightness(1.06)}}
+
   </style>
 </head>
 <body>
@@ -45,7 +70,7 @@
     </section>
     <section class="panel" id="musicPanel">
       <div class="eyebrow">MUSIC PLAYER</div>
-      <h2>Nghe nhạc</h2>
+      <h2>Nghe nhạc <span class="note" style="font-weight:500">· Liquid Glass</span></h2>
       <p class="note">Tìm bài hát theo tên hoặc ca sĩ, hoặc dán liên kết Spotify / Apple Music. Trình phát nhúng không phát video YouTube.</p>
       <label for="musicSearch">Tìm tên bài hát / ca sĩ</label>
       <div class="row"><input id="musicSearch" type="search" autocomplete="off" placeholder="Ví dụ: Sơn Tùng M-TP"><button id="searchMusic" type="button">🔎 Tìm nhạc</button></div>
