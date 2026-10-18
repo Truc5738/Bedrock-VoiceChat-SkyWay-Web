@@ -352,9 +352,7 @@
       }
       if (host === 'music.apple.com' || host === 'itunes.apple.com') {
         if (!url.pathname.split('/').filter(Boolean).some(part => /^(album|playlist|song|music-video|station|curator)$/.test(part))) throw new Error('Dùng liên kết Apple Music tới bài hát, album hoặc playlist.');
-        let path = url.pathname;
-        path = path.replace(/^\\/([a-z]{2})\\//, '/');
-        return {src:'https://embed.music.apple.com' + path + url.search, title:'Apple Music player', provider:'Apple Music'};
+        return {src:'https://embed.music.apple.com' + url.pathname + url.search, title:'Apple Music player', provider:'Apple Music'};
       }
       throw new Error('Liên kết chưa được hỗ trợ. Hãy dùng Spotify hoặc Apple Music.');
     }
