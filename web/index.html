@@ -43,6 +43,20 @@
       <p class="note">Micro mặc định tắt khi vào phòng. Giữ nút này để nói, thả tay ra sẽ tắt micro lại.</p>
       <p class="note">Cho phép trình duyệt dùng micro khi được hỏi. Trên Android, hãy giữ tab này hoạt động để âm thanh ổn định hơn.</p>
     </section>
+    <section class="panel" id="musicPanel">
+      <div class="eyebrow">MUSIC PLAYER</div>
+      <h2>Nghe nhạc</h2>
+      <p class="note">Dán liên kết YouTube, Spotify hoặc Apple Music để mở trình phát ngay trong phòng voice chat.</p>
+      <label for="musicUrl">Liên kết bài hát / playlist</label>
+      <input id="musicUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://youtu.be/... hoặc liên kết Spotify / Apple Music">
+      <div class="row" style="margin-top:10px">
+        <button id="loadMusic" type="button">▶ Mở nhạc</button>
+        <button id="clearMusic" type="button" class="secondary">✕ Đóng trình phát</button>
+      </div>
+      <div id="musicStatus" class="status" role="status" aria-live="polite"><span class="dot"></span><span>Chưa mở trình phát.</span></div>
+      <div id="musicPlayer" style="margin-top:12px"></div>
+      <p class="note">Lưu ý: nhạc phát trên thiết bị của từng người, không truyền âm thanh nhạc vào voice chat và chưa đồng bộ phát/tạm dừng giữa mọi người. Spotify hoặc Apple Music có thể yêu cầu đăng nhập hay gói dịch vụ phù hợp.</p>
+    </section>
     <section class="panel" id="logPanel">
       <div class="eyebrow">DEBUG CONSOLE</div>
       <h2>Nhật ký kết nối <span id="logCount" class="note">(0)</span></h2>
@@ -316,6 +330,69 @@
     pttBtn.addEventListener('pointerdown',pushToTalkStart);pttBtn.addEventListener('pointerup',pushToTalkEnd);pttBtn.addEventListener('pointercancel',pushToTalkEnd);pttBtn.addEventListener('lostpointercapture',pushToTalkEnd);window.addEventListener('pointerup',pushToTalkEnd);
     joinBtn.addEventListener('click',()=>join()); leaveBtn.addEventListener('click',leave); micBtn.addEventListener('click',toggleMic);
     soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; audioElements.forEach(audio=>audio.muted=!soundOn); soundBtn.textContent=soundOn?'🔊 Âm thanh bật':'🔇 Âm thanh tắt'; });
+    const musicUrlInput = $('musicUrl'), musicPlayer = $('musicPlayer'), musicStatus = $('musicStatus');
+    function setMusicStatus(message, live=false) {
+      musicStatus.replaceChildren();
+      const indicator = document.createElement('span'); indicator.className = 'dot' + (live ? ' live' : '');
+      const textNode = document.createElement('span'); textNode.textContent = message;
+      musicStatus.append(indicator, textNode);
+    }
+    function makeMusicEmbed(rawUrl) {
+      let url;
+      try { url = new URL(rawUrl.trim()); } catch (_) { throw new Error('Hãy dán một liên kết hợp lệ.'); }
+      if (url.protocol !== 'https:') throw new Error('Chỉ chấp nhận liên kết HTTPS.');
+      const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be' || host === 'music.youtube.com' || host === 'youtube-nocookie.com') {
+        let id = '';
+        if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
+        else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
+        else {
+          const parts = url.pathname.split('/').filter(Boolean);
+          if (['embed','shorts','live'].includes(parts[0])) id = parts[1] || '';
+        }
+        if (!/^[A-Za-z0-9_-]{11}$/.test(id)) throw new Error('Không nhận diện được video YouTube. Hãy dùng liên kết video, không phải trang tìm kiếm.');
+        return {src:'https://www.youtube-nocookie.com/embed/' + id, title:'YouTube player', provider:'YouTube', ratio:'16 / 9'};
+      }
+      if (host === 'open.spotify.com' || host === 'spotify.com') {
+        const parts = url.pathname.split('/').filter(Boolean);
+        const typeIndex = parts.findIndex(part => ['track','album','playlist','episode','show'].includes(part));
+        if (typeIndex < 0 || !parts[typeIndex + 1]) throw new Error('Dùng liên kết Spotify tới bài hát, album, playlist hoặc podcast.');
+        const path = '/' + parts.slice(typeIndex, typeIndex + 2).join('/');
+        return {src:'https://open.spotify.com/embed' + path, title:'Spotify player', provider:'Spotify', ratio:'auto'};
+      }
+      if (host === 'music.apple.com' || host === 'itunes.apple.com') {
+        if (!url.pathname.split('/').filter(Boolean).some(part => /^(album|playlist|song|music-video|station|curator)$/.test(part))) {
+          throw new Error('Dùng liên kết Apple Music tới bài hát, album hoặc playlist.');
+        }
+        return {src:'https://embed.music.apple.com' + url.pathname + url.search, title:'Apple Music player', provider:'Apple Music', ratio:'auto'};
+      }
+      throw new Error('Liên kết này chưa được hỗ trợ. Hãy dùng YouTube, open.spotify.com hoặc music.apple.com.');
+    }
+    $('loadMusic').addEventListener('click', () => {
+      try {
+        const embed = makeMusicEmbed(musicUrlInput.value);
+        const frame = document.createElement('iframe');
+        frame.src = embed.src;
+        frame.title = embed.title;
+        frame.loading = 'lazy';
+        frame.allow = 'autoplay; encrypted-media; clipboard-write; picture-in-picture; web-share';
+        frame.allowFullscreen = true;
+        frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        frame.style.cssText = 'display:block;width:100%;height:' + (embed.provider === 'YouTube' ? 'min(56.25vw,405px)' : '180px') + ';min-height:' + (embed.provider === 'YouTube' ? '190px' : '150px') + ';border:0;border-radius:14px;background:#080e0a';
+        musicPlayer.replaceChildren(frame);
+        setMusicStatus('Đã mở trình phát ' + embed.provider + '. Bấm Play trong khung để bắt đầu.', true);
+        log('info', 'Đã mở trình phát nhạc', embed.provider);
+      } catch (error) {
+        musicPlayer.replaceChildren();
+        setMusicStatus(error.message || 'Không thể mở liên kết.');
+        log('warn', 'Liên kết nhạc không hợp lệ', error.message || error);
+      }
+    });
+    $('clearMusic').addEventListener('click', () => {
+      musicPlayer.replaceChildren();
+      musicUrlInput.value = '';
+      setMusicStatus('Đã đóng trình phát.');
+    });
     window.addEventListener('pagehide', stopRemoteLogging);
     window.addEventListener('beforeunload',()=>{ stopRemoteLogging(); try { if(me) me.leave(); if(room) room.dispose(); if(context) context.dispose(); } catch(_){} });
   })();
