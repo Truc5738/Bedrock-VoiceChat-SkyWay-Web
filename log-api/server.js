@@ -5,6 +5,7 @@ const PORT = Number(process.env.PORT || 10000);
 const AXIOM_TOKEN = process.env.AXIOM_API_TOKEN || "";
 const SKYWAY_APP_ID = process.env.SKYWAY_APP_ID || "";
 const SKYWAY_SECRET_KEY = process.env.SKYWAY_SECRET_KEY || "";
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
 const AXIOM_DATASET = process.env.AXIOM_DATASET || "bedrock-voicechat-logs";
 const AXIOM_DOMAIN = process.env.AXIOM_DOMAIN || "us-east-1.aws.edge.axiom.co";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://truc5738.github.io").split(",").map(v => v.trim()).filter(Boolean);
@@ -87,6 +88,34 @@ const server = http.createServer(async (req, res) => {
   }
   const path = new URL(req.url || "/", "http://localhost").pathname;
   if (req.method === "GET" && path === "/health") return json(res, 200, { ok: true, service: "bedrock-voicechat-log-api", axiomConfigured: Boolean(AXIOM_TOKEN), skywayConfigured: Boolean(SKYWAY_APP_ID && SKYWAY_SECRET_KEY), timestamp: new Date().toISOString() }, origin);
+  if (req.method === "GET" && path === "/music/search") {
+    if (!origin) return json(res, 403, { error: "origin_not_allowed" });
+    if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
+    if (!YOUTUBE_API_KEY) return json(res, 503, { error: "youtube_not_configured", message: "YOUTUBE_API_KEY chưa được cấu hình trên Render." }, origin);
+    const query = (new URL(req.url || "/", "http://localhost").searchParams.get("q") || "").trim().slice(0, 120);
+    if (query.length < 1) return json(res, 400, { error: "query_required" }, origin);
+    try {
+      const apiUrl = new URL("https://www.googleapis.com/youtube/v3/search");
+      apiUrl.search = new URLSearchParams({ part: "snippet", type: "video", videoEmbeddable: "true", maxResults: "10", safeSearch: "moderate", q: query, key: YOUTUBE_API_KEY }).toString();
+      const response = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("YouTube search failed:", response.status, data?.error?.status || "api_error");
+        return json(res, response.status === 403 ? 502 : 502, { error: "youtube_api_failed", message: "YouTube API từ chối yêu cầu. Kiểm tra API key, quota và API đã bật." }, origin);
+      }
+      const items = (Array.isArray(data.items) ? data.items : []).map(item => ({
+        videoId: item.id?.videoId || "",
+        title: item.snippet?.title || "Không có tiêu đề",
+        channel: item.snippet?.channelTitle || "",
+        publishedAt: item.snippet?.publishedAt || "",
+        thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || ""
+      })).filter(item => item.videoId);
+      return json(res, 200, { ok: true, query, results: items }, origin);
+    } catch (error) {
+      console.error("YouTube search error:", error?.name || "Error");
+      return json(res, 502, { error: "youtube_unavailable", message: "Không kết nối được YouTube API. Thử lại sau." }, origin);
+    }
+  }
   if (req.method === "GET" && path === "/skyway-token") {
     if (!origin || !SKYWAY_APP_ID || !SKYWAY_SECRET_KEY) return json(res, 503, { error: "skyway_not_configured" }, origin);
     if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
