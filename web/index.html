@@ -50,6 +50,7 @@
       <div class="panel" style="margin:14px 0 0;padding:14px;background:#0b150e">
         <div class="row"><button id="wakeServer" type="button">▶ BẬT MÁY CHỦ</button><button id="stopServer" type="button" class="secondary" disabled>■ TẮT MÁY CHỦ</button></div><div class="row" style="margin-top:8px"><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
         <div class="status" style="margin-top:10px" role="status" aria-live="polite"><span id="serverDot" class="dot"></span><span id="serverStatus">Máy chủ chưa được kiểm tra. Bấm “BẬT MÁY CHỦ” để kiểm tra và kết nối.</span></div>
+        <div id="wakeProgressWrap" hidden style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)"><span id="wakeProgressLabel">Đang chờ máy chủ phản hồi</span><strong id="wakeProgressPercent">0%</strong></div><div style="height:7px;margin-top:6px;border-radius:99px;background:#26332a;overflow:hidden"><div id="wakeProgressBar" style="height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#54d68b,#8bf0b3);transition:width .35s ease"></div></div><small style="display:block;margin-top:5px;color:var(--muted)">Phần trăm là tiến trình chờ tối đa 90 giây, không phải số liệu nội bộ từ Render. Chỉ đạt 100% khi máy chủ phản hồi thành công.</small></div>
       </div>
       <div class="actions"><button id="createRoom" type="button" disabled>＋ Tạo phòng mới</button><button id="join" disabled>Vào phòng bằng mã</button></div>
       <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
@@ -187,10 +188,22 @@
         return true;
       } finally { clearTimeout(timeout); }
     }
+    const wakeProgressWrap = $('wakeProgressWrap'), wakeProgressBar = $('wakeProgressBar'), wakeProgressPercent = $('wakeProgressPercent'), wakeProgressLabel = $('wakeProgressLabel');
+    function setWakeProgress(percent, label='Đang chờ máy chủ phản hồi') {
+      const value = Math.max(0, Math.min(100, Math.round(percent)));
+      wakeProgressWrap.hidden = false;
+      wakeProgressBar.style.width = value + '%';
+      wakeProgressPercent.textContent = value + '%';
+      wakeProgressLabel.textContent = label;
+    }
+    function hideWakeProgress() { wakeProgressWrap.hidden = true; }
+
     async function runServerCheck(wake=false) {
       if (serverCheckBusy) return;
       serverCheckBusy = true;
       wakeServerBtn.disabled = true; stopServerBtn.disabled = true; checkServerBtn.disabled = true;
+      if (wake) setWakeProgress(0, 'Đang kiểm tra máy chủ trước khi bật');
+      else hideWakeProgress();
       setServerState(wake ? 'Đang kiểm tra máy chủ trước khi bật…' : 'Đang kiểm tra máy chủ…');
       try {
         if (!wake) {
@@ -207,6 +220,7 @@
         // không chạy vòng đánh thức/thử lại.
         try {
           await checkBackendOnce(8000);
+          setWakeProgress(100, 'Máy chủ đã hoạt động sẵn');
           setServerState('Máy chủ đã hoạt động sẵn. Không cần bật lại.', true);
           log('info', 'Bỏ qua bật máy chủ vì backend đã hoạt động');
           return;
@@ -215,16 +229,26 @@
         }
 
         // Với Render Free, yêu cầu /health đầu tiên có thể tự đánh thức dịch vụ.
-        const deadline = Date.now() + 90000;
+        const progressStartedAt = Date.now();
+        const deadline = progressStartedAt + 90000;
         let lastError = 'Máy chủ chưa phản hồi';
+        let progressTimer = setInterval(() => {
+          const elapsed = Date.now() - progressStartedAt;
+          setWakeProgress(Math.min(95, elapsed / 90000 * 95), 'Đang đánh thức Render…');
+        }, 400);
+        try {
         while (Date.now() < deadline) {
           try {
             await checkBackendOnce(12000);
+            clearInterval(progressTimer);
+            setWakeProgress(100, 'Máy chủ đã phản hồi thành công');
             setServerState('Máy chủ đã hoạt động.', true);
             return;
           } catch (error) {
             if (/thiếu cấu hình SkyWay/i.test(error?.message || '')) {
               lastError = error.message;
+              clearInterval(progressTimer);
+              setWakeProgress(Math.min(95, (Date.now() - progressStartedAt) / 90000 * 95), 'Backend phản hồi nhưng thiếu cấu hình');
               setServerState(lastError, false);
               log('error', 'Backend hoạt động nhưng thiếu cấu hình SkyWay', lastError);
               return;
@@ -234,8 +258,10 @@
             await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
+        setWakeProgress(95, 'Chưa nhận được phản hồi từ máy chủ');
         setServerState(lastError + ' Đã hết 90 giây. Thử lại hoặc kiểm tra trạng thái dịch vụ Render.');
         log('warn', 'Hết thời gian đánh thức Render', lastError);
+        } finally { clearInterval(progressTimer); }
       } finally {
         serverCheckBusy = false; wakeServerBtn.disabled = false; checkServerBtn.disabled = false; stopServerBtn.disabled = !serverReady;
       }
