@@ -391,7 +391,7 @@
       const button = $('searchMusic'); button.disabled = true; musicResults.replaceChildren();
       const loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = 'Đang tìm bài hát…'; musicResults.append(loading);
       try {
-        resultsEl.innerHTML = '<p class="note">Tìm kiếm SoundCloud / YouTube API đang chờ cấu hình API key ở backend Render. YouTube Data API v3 chỉ tìm metadata; SoundCloud chỉ phát được track có stream hợp lệ.</p>';
+        musicResults.replaceChildren(); const note = document.createElement('div'); note.className = 'empty'; note.textContent = 'Tìm kiếm SoundCloud / YouTube API đang chờ cấu hình API key ở backend Render. YouTube Data API v3 chỉ tìm metadata; SoundCloud chỉ phát được track có stream hợp lệ.'; musicResults.append(note); setMusicStatus('Chưa cấu hình API tìm kiếm trên backend.');
       } catch(error) { musicResults.replaceChildren(); const fail=document.createElement('div'); fail.className='empty'; fail.textContent='Không thể tìm nhạc. Hãy kiểm tra Internet rồi thử lại.'; musicResults.append(fail); setMusicStatus(error.message || 'Không thể tìm nhạc.'); log('warn','Tìm nhạc thất bại',error.message || error); }
       finally { button.disabled=false; }
     }
