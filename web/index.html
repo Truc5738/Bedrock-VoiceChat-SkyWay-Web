@@ -48,8 +48,8 @@
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Ví dụ: Steve">
       <div class="status"><span class="dot live"></span><span>SkyWay xác thực tự động qua máy chủ bảo mật. Application ID và Secret Key không được gửi tới trình duyệt.</span></div>
       <div class="panel" style="margin:14px 0 0;padding:14px;background:#0b150e">
-        <div class="row"><button id="wakeServer" type="button">▶ BẬT MÁY CHỦ</button><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
-        <div class="status" style="margin-top:10px" role="status" aria-live="polite"><span id="serverDot" class="dot"></span><span id="serverStatus">Chưa kiểm tra máy chủ. Bấm “BẬT MÁY CHỦ” để kết nối.</span></div>
+        <div class="row"><button id="wakeServer" type="button">▶ BẬT MÁY CHỦ</button><button id="stopServer" type="button" class="secondary" disabled>■ TẮT MÁY CHỦ</button></div><div class="row" style="margin-top:8px"><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
+        <div class="status" style="margin-top:10px" role="status" aria-live="polite"><span id="serverDot" class="dot"></span><span id="serverStatus">Máy chủ chưa được kiểm tra. Bấm “BẬT MÁY CHỦ” để kiểm tra và kết nối.</span></div>
       </div>
       <div class="actions"><button id="createRoom" type="button" disabled>＋ Tạo phòng mới</button><button id="join" disabled>Vào phòng bằng mã</button></div>
       <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
@@ -101,8 +101,8 @@
     const $ = (id) => document.getElementById(id);
     const roomInput = $('room'), nickInput = $('nickname');
     const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
-    const wakeServerBtn = $('wakeServer'), checkServerBtn = $('checkServer'), serverStatusEl = $('serverStatus'), serverDot = $('serverDot');
-    let serverReady = false, serverCheckBusy = false;
+    const wakeServerBtn = $('wakeServer'), stopServerBtn = $('stopServer'), checkServerBtn = $('checkServer'), serverStatusEl = $('serverStatus'), serverDot = $('serverDot');
+    let serverReady = false, serverCheckBusy = false, serverManuallyOff = false;
     const copyRoomBtn = $('copyRoom'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     const logsEl = $('logs'), logCountEl = $('logCount');
@@ -167,6 +167,7 @@
       serverDot.classList.toggle('live', ready);
       createRoomBtn.disabled = !ready || !!room || busy;
       joinBtn.disabled = !ready || !!room || busy;
+      stopServerBtn.disabled = !ready || serverCheckBusy;
     }
     async function checkBackendOnce(timeoutMs=8000) {
       const controller = new AbortController();
@@ -176,8 +177,12 @@
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         if (!data || !data.ok) throw new Error('Phản hồi health không hợp lệ');
-        if (!data.skywayConfigured) throw new Error('Backend chạy nhưng thiếu cấu hình SkyWay');
-        setServerState('Máy chủ đang hoạt động. Có thể tạo phòng hoặc tham gia phòng.', true);
+        if (!data.skywayConfigured) {
+          setServerState('Backend đã thức nhưng thiếu SKYWAY_APP_ID hoặc SKYWAY_SECRET_KEY trong Render.', false);
+          throw new Error('Backend phản hồi nhưng thiếu cấu hình SkyWay. Kiểm tra biến môi trường SKYWAY_APP_ID và SKYWAY_SECRET_KEY trong Render.');
+        }
+        serverManuallyOff = false;
+        setServerState('Máy chủ hoạt động và SkyWay đã cấu hình. Có thể tạo hoặc tham gia phòng.', true);
         log('info', 'Render backend đã sẵn sàng');
         return true;
       } finally { clearTimeout(timeout); }
@@ -185,7 +190,7 @@
     async function runServerCheck(wake=false) {
       if (serverCheckBusy) return;
       serverCheckBusy = true;
-      wakeServerBtn.disabled = true; checkServerBtn.disabled = true;
+      wakeServerBtn.disabled = true; stopServerBtn.disabled = true; checkServerBtn.disabled = true;
       setServerState(wake ? 'Đang đánh thức Render…' : 'Đang kiểm tra máy chủ…');
       try {
         if (!wake) {
@@ -210,11 +215,39 @@
         setServerState(lastError + ' Đã hết 90 giây. Thử lại hoặc kiểm tra trạng thái dịch vụ Render.');
         log('warn', 'Hết thời gian đánh thức Render', lastError);
       } finally {
-        serverCheckBusy = false; wakeServerBtn.disabled = false; checkServerBtn.disabled = false;
+        serverCheckBusy = false; wakeServerBtn.disabled = false; checkServerBtn.disabled = false; stopServerBtn.disabled = !serverReady;
       }
     }
-    wakeServerBtn.addEventListener('click', () => runServerCheck(true));
-    checkServerBtn.addEventListener('click', () => runServerCheck(false));
+    wakeServerBtn.addEventListener('click', async () => {
+      serverManuallyOff = false;
+      await runServerCheck(true);
+    });
+    stopServerBtn.addEventListener('click', async () => {
+      if (serverCheckBusy) return;
+      serverManuallyOff = true;
+      stopServerBtn.disabled = true;
+      wakeServerBtn.disabled = true;
+      checkServerBtn.disabled = true;
+      try {
+        if (room) await leave();
+        serverReady = false;
+        createRoomBtn.disabled = true;
+        joinBtn.disabled = true;
+        serverDot.classList.remove('live');
+        serverStatusEl.textContent = 'Đã tắt kết nối của trang này. Dịch vụ Render vẫn chạy trên máy chủ; để tắt hạ tầng Render thật, cần thao tác trong Render Dashboard.';
+        log('status', 'Đã tắt kết nối máy chủ từ giao diện');
+      } finally {
+        wakeServerBtn.disabled = false;
+        checkServerBtn.disabled = false;
+      }
+    });
+    checkServerBtn.addEventListener('click', () => {
+      if (serverManuallyOff) {
+        setServerState('Kết nối đang tắt ở giao diện. Bấm “BẬT MÁY CHỦ” để kết nối lại.', false);
+        return;
+      }
+      runServerCheck(false);
+    });
     let context = null, room = null, me = null, localAudio = null, audioPublication = null;
     let muted = true, soundOn = true, busy = false, pttActive = false, pttWasMuted = true;
     try { nickInput.value=localStorage.getItem('bedrockVoice.nickname')||''; } catch (_) {}
