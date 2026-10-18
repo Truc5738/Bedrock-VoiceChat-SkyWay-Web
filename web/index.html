@@ -191,7 +191,7 @@
       if (serverCheckBusy) return;
       serverCheckBusy = true;
       wakeServerBtn.disabled = true; stopServerBtn.disabled = true; checkServerBtn.disabled = true;
-      setServerState(wake ? 'Đang đánh thức Render…' : 'Đang kiểm tra máy chủ…');
+      setServerState(wake ? 'Đang kiểm tra máy chủ trước khi bật…' : 'Đang kiểm tra máy chủ…');
       try {
         if (!wake) {
           try { await checkBackendOnce(8000); }
@@ -202,11 +202,33 @@
           }
           return;
         }
+
+        // Kiểm tra trước: nếu backend đang hoạt động thì dừng tại đây,
+        // không chạy vòng đánh thức/thử lại.
+        try {
+          await checkBackendOnce(8000);
+          setServerState('Máy chủ đã hoạt động sẵn. Không cần bật lại.', true);
+          log('info', 'Bỏ qua bật máy chủ vì backend đã hoạt động');
+          return;
+        } catch (error) {
+          log('info', 'Backend chưa phản hồi; bắt đầu chờ Render khởi động', error?.message || String(error));
+        }
+
+        // Với Render Free, yêu cầu /health đầu tiên có thể tự đánh thức dịch vụ.
         const deadline = Date.now() + 90000;
         let lastError = 'Máy chủ chưa phản hồi';
         while (Date.now() < deadline) {
-          try { await checkBackendOnce(12000); return; }
-          catch (error) {
+          try {
+            await checkBackendOnce(12000);
+            setServerState('Máy chủ đã hoạt động.', true);
+            return;
+          } catch (error) {
+            if (/thiếu cấu hình SkyWay/i.test(error?.message || '')) {
+              lastError = error.message;
+              setServerState(lastError, false);
+              log('error', 'Backend hoạt động nhưng thiếu cấu hình SkyWay', lastError);
+              return;
+            }
             lastError = error?.name === 'AbortError' ? 'Render vẫn đang khởi động…' : 'Đang chờ Render: ' + (error?.message || error);
             setServerState(lastError + ' Tự thử lại sau 3 giây…');
             await new Promise(resolve => setTimeout(resolve, 3000));
