@@ -80,7 +80,7 @@
       <div class="row" style="margin-top:10px"><button id="loadMusic" type="button">▶ Mở nhạc</button><button id="clearMusic" type="button" class="secondary">✕ Đóng trình phát</button></div>
       <div id="musicStatus" class="status" role="status" aria-live="polite"><span class="dot"></span><span>Chưa mở trình phát.</span></div>
       <div id="musicPlayer" style="margin-top:12px"></div>
-      <p class="note">Kết quả tìm kiếm lấy từ Apple iTunes Search. Nhạc phát trên thiết bị của từng người, không truyền âm thanh nhạc vào voice chat và chưa đồng bộ phát/tạm dừng giữa mọi người. Spotify hoặc Apple Music có thể yêu cầu đăng nhập hay gói dịch vụ phù hợp.</p>
+      <p class="note">Kết quả tìm kiếm lấy từ Apple iTunes Search, tối đa 50 bài mỗi lượt. Nhạc phát trên thiết bị của từng người, không truyền âm thanh nhạc vào voice chat và chưa đồng bộ phát/tạm dừng giữa mọi người. Spotify hoặc Apple Music có thể yêu cầu đăng nhập hay gói dịch vụ phù hợp.</p>
     </section>
     <section class="panel" id="logPanel">
       <div class="eyebrow">DEBUG CONSOLE</div>
@@ -396,7 +396,7 @@
       const button = $('searchMusic'); button.disabled = true; musicResults.replaceChildren();
       const loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = 'Đang tìm bài hát…'; musicResults.append(loading);
       try {
-        const endpoint = 'https://itunes.apple.com/search?term=' + encodeURIComponent(term) + '&entity=song&limit=10&country=VN';
+        const endpoint = 'https://itunes.apple.com/search?term=' + encodeURIComponent(term) + '&entity=song&limit=50&country=VN';
         const response = await fetch(endpoint); if (!response.ok) throw new Error('Lỗi máy chủ tìm kiếm: HTTP ' + response.status);
         const data = await response.json(); musicResults.replaceChildren();
         if (!data.results || !data.results.length) { const empty = document.createElement('div'); empty.className='empty'; empty.textContent='Không tìm thấy bài hát phù hợp.'; musicResults.append(empty); setMusicStatus('Không có kết quả cho: ' + term); return; }
