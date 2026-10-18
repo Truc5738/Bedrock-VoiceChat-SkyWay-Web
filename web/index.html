@@ -224,21 +224,49 @@
     });
     stopServerBtn.addEventListener('click', async () => {
       if (serverCheckBusy) return;
-      serverManuallyOff = true;
+      const password = window.prompt('Nhập mật khẩu quản trị để xác nhận tắt kết nối:');
+      if (password === null) return;
+      if (!password) { window.alert('Bạn chưa nhập mật khẩu.'); return; }
+      serverCheckBusy = true;
       stopServerBtn.disabled = true;
       wakeServerBtn.disabled = true;
       checkServerBtn.disabled = true;
       try {
+        setServerState('Đang xác minh mật khẩu quản trị…', false);
+        const response = await fetch(LOG_API + '/control/stop', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          cache: 'no-store',
+          body: JSON.stringify({password})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) {
+          const message = response.status === 401 ? 'Mật khẩu không đúng.' :
+            response.status === 503 ? 'Chưa cấu hình SERVER_CONTROL_PASSWORD trong Render.' :
+            result.message || ('Không xác minh được mật khẩu (HTTP ' + response.status + ').');
+          setServerState(message, serverReady);
+          log('warn', 'Từ chối thao tác tắt kết nối', message);
+          window.alert(message);
+          return;
+        }
+        serverManuallyOff = true;
         if (room) await leave();
         serverReady = false;
         createRoomBtn.disabled = true;
         joinBtn.disabled = true;
         serverDot.classList.remove('live');
-        serverStatusEl.textContent = 'Đã tắt kết nối của trang này. Dịch vụ Render vẫn chạy trên máy chủ; để tắt hạ tầng Render thật, cần thao tác trong Render Dashboard.';
-        log('status', 'Đã tắt kết nối máy chủ từ giao diện');
+        serverStatusEl.textContent = 'Đã xác thực và ngắt kết nối của trang này. Dịch vụ Render vẫn chạy; nút này không tắt hạ tầng Render.';
+        log('status', 'Mật khẩu hợp lệ; đã ngắt kết nối trang này');
+      } catch (error) {
+        const message = 'Không thể xác minh mật khẩu vì backend không phản hồi. Chưa thực hiện thao tác tắt.';
+        setServerState(message, serverReady);
+        log('error', 'Không thể xác minh mật khẩu quản trị', error?.message || error);
+        window.alert(message);
       } finally {
+        serverCheckBusy = false;
         wakeServerBtn.disabled = false;
         checkServerBtn.disabled = false;
+        stopServerBtn.disabled = !serverReady;
       }
     });
     checkServerBtn.addEventListener('click', () => {
