@@ -1,4 +1,5 @@
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { SkyWayAuthToken, nowInSec, uuidV4 } from "@skyway-sdk/token";
 
 const PORT = Number(process.env.PORT || 10000);
@@ -6,6 +7,7 @@ const AXIOM_TOKEN = process.env.AXIOM_API_TOKEN || "";
 const SKYWAY_APP_ID = process.env.SKYWAY_APP_ID || "";
 const SKYWAY_SECRET_KEY = process.env.SKYWAY_SECRET_KEY || "";
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
+const SERVER_CONTROL_PASSWORD = process.env.SERVER_CONTROL_PASSWORD || "";
 const AXIOM_DATASET = process.env.AXIOM_DATASET || "bedrock-voicechat-logs";
 const AXIOM_DOMAIN = process.env.AXIOM_DOMAIN || "us-east-1.aws.edge.axiom.co";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://truc5738.github.io").split(",").map(v => v.trim()).filter(Boolean);
@@ -144,6 +146,22 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       console.error("SkyWay token issue error:", error.message);
       return json(res, 500, { error: "token_issue_failed" }, origin);
+    }
+  }
+  if (req.method === "POST" && path === "/control/stop") {
+    if (!origin) return json(res, 403, { error: "origin_not_allowed" });
+    if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
+    if (!SERVER_CONTROL_PASSWORD) return json(res, 503, { error: "server_control_not_configured", message: "SERVER_CONTROL_PASSWORD chưa được cấu hình trên Render." }, origin);
+    try {
+      const payload = await readBody(req);
+      const supplied = Buffer.from(typeof payload.password === "string" ? payload.password : "", "utf8");
+      const expected = Buffer.from(SERVER_CONTROL_PASSWORD, "utf8");
+      const valid = supplied.length === expected.length && timingSafeEqual(supplied, expected);
+      supplied.fill(0);
+      if (!valid) return json(res, 401, { error: "invalid_password", message: "Mật khẩu không đúng." }, origin);
+      return json(res, 200, { ok: true, action: "connection_stop_authorized", message: "Xác thực thành công. Có thể ngắt kết nối của trang này." }, origin);
+    } catch (error) {
+      return json(res, error.status || 400, { error: error.status === 413 ? "body_too_large" : "bad_request" }, origin);
     }
   }
   if (req.method !== "POST" || path !== "/log") return json(res, 404, { error: "not_found" }, origin);
