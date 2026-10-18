@@ -71,7 +71,7 @@
     <section class="panel" id="musicPanel">
       <div class="eyebrow">MUSIC PLAYER</div>
       <h2>Nghe nhạc <span class="note" style="font-weight:500">· Liquid Glass</span></h2>
-      <p class="note">Tìm nhạc qua SoundCloud API và YouTube Data API v3. YouTube chỉ dùng để tìm kiếm, không hiển thị video.</p>
+      <p class="note">Tìm video/bài nhạc bằng YouTube Data API v3. Khi chọn kết quả, trình phát YouTube chính thức sẽ mở ngay bên dưới.</p>
       <label for="musicSearch">Tìm tên bài hát / ca sĩ</label>
       <div class="row"><input id="musicSearch" type="search" autocomplete="off" placeholder="Ví dụ: Sơn Tùng M-TP"><button id="searchMusic" type="button">🔎 Tìm nhạc</button></div>
       <div id="musicResults" class="people" style="margin-top:10px"></div>
@@ -80,7 +80,7 @@
       <div class="row" style="margin-top:10px"><button id="loadMusic" type="button">▶ Mở nhạc</button><button id="clearMusic" type="button" class="secondary">✕ Đóng trình phát</button></div>
       <div id="musicStatus" class="status" role="status" aria-live="polite"><span class="dot"></span><span>Chưa mở trình phát.</span></div>
       <div id="musicPlayer" style="margin-top:12px"></div>
-      <p class="note">Tìm kiếm SoundCloud và YouTube cần API key được cấu hình an toàn ở backend. YouTube Data API v3 chỉ trả kết quả tìm kiếm, không cung cấp luồng audio trực tiếp. Nhạc phát trên thiết bị của từng người, không truyền vào voice chat.</p>
+      <p class="note">API key được giữ ở backend Render. YouTube Data API v3 chỉ tìm metadata; khi phát, nội dung dùng trình phát YouTube chính thức (có thể hiển thị video). Âm thanh phát riêng trên thiết bị, không truyền vào voice chat.</p>
     </section>
     <section class="panel" id="logPanel">
       <div class="eyebrow">DEBUG CONSOLE</div>
@@ -368,19 +368,25 @@
       try { url = new URL(rawUrl.trim()); } catch (_) { throw new Error('Hãy dán một liên kết hợp lệ.'); }
       if (url.protocol !== 'https:') throw new Error('Chỉ chấp nhận liên kết HTTPS.');
       const host = url.hostname.toLowerCase().replace(/^www\\./, '');
-      if (['youtube.com','m.youtube.com','youtu.be','music.youtube.com','youtube-nocookie.com'].includes(host)) throw new Error('YouTube chỉ dùng để tìm kiếm. YouTube Data API v3 không cung cấp luồng audio trực tiếp.');
+      if (['youtube.com','m.youtube.com','youtu.be','music.youtube.com','youtube-nocookie.com'].includes(host)) {
+        let videoId = '';
+        if (host === 'youtu.be') videoId = url.pathname.split('/').filter(Boolean)[0] || '';
+        else videoId = url.searchParams.get('v') || (url.pathname.match(/\\/(?:embed|shorts)\\/([A-Za-z0-9_-]{11})/) || [])[1] || '';
+        if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) throw new Error('Không tìm thấy mã video YouTube hợp lệ.');
+        return {src:'https://www.youtube-nocookie.com/embed/' + videoId, title:'YouTube player', provider:'YouTube'};
+      }
       if (host === 'soundcloud.com' || host === 'm.soundcloud.com') {
         const path = url.pathname.split('/').filter(Boolean);
         if (path.length < 2) throw new Error('Dán liên kết SoundCloud tới track hoặc playlist.');
         return {src:'https://w.soundcloud.com/player/?url=' + encodeURIComponent(url.origin + url.pathname) + '&auto_play=false&visual=false', title:'SoundCloud audio player', provider:'SoundCloud'};
       }
-      throw new Error('Chỉ hỗ trợ liên kết SoundCloud; YouTube chỉ dùng để tìm kiếm.');
+      throw new Error('Chỉ hỗ trợ liên kết SoundCloud hoặc YouTube.');
     }
     function openMusicUrl(rawUrl) {
       const embed = makeMusicEmbed(rawUrl);
       const frame = document.createElement('iframe'); frame.src = embed.src; frame.title = embed.title; frame.loading = 'lazy';
-      frame.allow = 'autoplay; encrypted-media; clipboard-write'; frame.referrerPolicy = 'strict-origin-when-cross-origin';
-      frame.style.cssText = 'display:block;width:100%;height:180px;min-height:150px;border:0;border-radius:14px;background:#080e0a';
+      frame.allow = 'autoplay; encrypted-media; picture-in-picture; clipboard-write'; frame.allowFullscreen = embed.provider === 'YouTube'; frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.style.cssText = 'display:block;width:100%;height:' + (embed.provider === 'YouTube' ? '315px' : '180px') + ';min-height:150px;border:0;border-radius:14px;background:#080e0a';
       musicPlayer.replaceChildren(frame); musicUrlInput.value = rawUrl;
       setMusicStatus('Đã mở trình phát ' + embed.provider + '. Bấm Play trong khung để bắt đầu.', true);
       log('info', 'Đã mở trình phát nhạc', embed.provider);
@@ -391,8 +397,35 @@
       const button = $('searchMusic'); button.disabled = true; musicResults.replaceChildren();
       const loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = 'Đang tìm bài hát…'; musicResults.append(loading);
       try {
-        musicResults.replaceChildren(); const note = document.createElement('div'); note.className = 'empty'; note.textContent = 'Tìm kiếm SoundCloud / YouTube API đang chờ cấu hình API key ở backend Render. YouTube Data API v3 chỉ tìm metadata; SoundCloud chỉ phát được track có stream hợp lệ.'; musicResults.append(note); setMusicStatus('Chưa cấu hình API tìm kiếm trên backend.');
-      } catch(error) { musicResults.replaceChildren(); const fail=document.createElement('div'); fail.className='empty'; fail.textContent='Không thể tìm nhạc. Hãy kiểm tra Internet rồi thử lại.'; musicResults.append(fail); setMusicStatus(error.message || 'Không thể tìm nhạc.'); log('warn','Tìm nhạc thất bại',error.message || error); }
+        const response = await fetch(LOG_API + '/music/search?q=' + encodeURIComponent(term), {cache:'no-store'});
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 503 && data.error === 'youtube_not_configured') throw new Error('Render chưa có YOUTUBE_API_KEY. Thêm key trong Environment rồi deploy lại.');
+          if (response.status === 502) throw new Error(data.message || 'YouTube API gặp lỗi. Kiểm tra key và quota.');
+          throw new Error(data.message || 'Tìm kiếm thất bại (HTTP ' + response.status + ').');
+        }
+        const items = Array.isArray(data.results) ? data.results : [];
+        musicResults.replaceChildren();
+        if (!items.length) {
+          const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Không tìm thấy kết quả. Thử từ khóa khác.'; musicResults.append(empty);
+          setMusicStatus('Không có kết quả cho: ' + term); return;
+        }
+        items.forEach(item => {
+          const row = document.createElement('div'); row.className = 'person';
+          if (item.thumbnail) { const img = document.createElement('img'); img.src = item.thumbnail; img.alt = ''; img.loading = 'lazy'; img.width = 96; img.height = 54; img.style.cssText = 'object-fit:cover;border-radius:8px;flex:none'; row.append(img); }
+          const info = document.createElement('div'); info.style.cssText = 'min-width:0;flex:1';
+          const title = document.createElement('strong'); title.textContent = item.title; title.style.cssText = 'display:block;overflow-wrap:anywhere';
+          const channel = document.createElement('small'); channel.textContent = item.channel || 'YouTube';
+          info.append(title, channel);
+          const play = document.createElement('button'); play.type = 'button'; play.className = 'secondary'; play.textContent = '▶ Phát'; play.style.cssText = 'flex:none;padding:8px 10px;min-height:40px';
+          play.addEventListener('click', () => { try { openMusicUrl('https://www.youtube.com/watch?v=' + encodeURIComponent(item.videoId)); } catch(error) { setMusicStatus(error.message || 'Không mở được video.'); } });
+          row.append(info, play); musicResults.append(row);
+        });
+        setMusicStatus('Tìm thấy ' + items.length + ' kết quả YouTube cho: ' + term, true);
+        log('info', 'Tìm kiếm YouTube thành công', 'results=' + items.length);
+      } catch(error) {
+        musicResults.replaceChildren(); const fail=document.createElement('div'); fail.className='empty'; fail.textContent=error.message || 'Không thể tìm nhạc. Hãy thử lại.'; musicResults.append(fail); setMusicStatus(error.message || 'Không thể tìm nhạc.'); log('warn','Tìm nhạc thất bại',error.message || error);
+      }
       finally { button.disabled=false; }
     }
     $('searchMusic').addEventListener('click', searchMusic);
