@@ -48,9 +48,9 @@
       <label for="nickname">Tên hiển thị</label><input id="nickname" maxlength="32" autocomplete="nickname" placeholder="Ví dụ: Steve">
       <div class="status"><span class="dot live"></span><span>SkyWay xác thực tự động qua máy chủ bảo mật. Application ID và Secret Key không được gửi tới trình duyệt.</span></div>
       <div class="panel" style="margin:14px 0 0;padding:14px;background:#0b150e">
-        <div class="row"><button id="wakeServer" type="button">▶ BẬT MÁY CHỦ</button><button id="stopServer" type="button" class="secondary" disabled>■ TẮT MÁY CHỦ</button></div><div class="row" style="margin-top:8px"><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
+        <div class="row"><button id="wakeServer" type="button">▶ BẬT / KẾT NỐI MÁY CHỦ</button><button id="stopServer" type="button" class="secondary" disabled>■ TẮT MÁY CHỦ</button></div><div class="row" style="margin-top:8px"><button id="checkServer" type="button" class="secondary">↻ Kiểm tra</button></div>
         <div class="status" style="margin-top:10px" role="status" aria-live="polite"><span id="serverDot" class="dot"></span><span id="serverStatus">Máy chủ chưa được kiểm tra. Bấm “BẬT MÁY CHỦ” để kiểm tra và kết nối.</span></div>
-        <div id="wakeProgressWrap" hidden style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)"><span id="wakeProgressLabel">Đang chờ máy chủ phản hồi</span><strong id="wakeProgressPercent">0%</strong></div><div style="height:7px;margin-top:6px;border-radius:99px;background:#26332a;overflow:hidden"><div id="wakeProgressBar" style="height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#54d68b,#8bf0b3);transition:width .35s ease"></div></div><small style="display:block;margin-top:5px;color:var(--muted)">Phần trăm là tiến trình chờ tối đa 90 giây, không phải số liệu nội bộ từ Render. Chỉ đạt 100% khi máy chủ phản hồi thành công.</small></div>
+        <div id="wakeProgressWrap" hidden style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)"><span id="wakeProgressLabel">Đang chờ máy chủ phản hồi</span><strong id="wakeProgressPercent">0%</strong></div><div style="height:7px;margin-top:6px;border-radius:99px;background:#26332a;overflow:hidden"><div id="wakeProgressBar" style="height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#54d68b,#8bf0b3);transition:width .35s ease"></div></div><small style="display:block;margin-top:5px;color:var(--muted)">Phần trăm thể hiện tiến trình chờ phản hồi, không phải số liệu nội bộ của Render. Render Free tự thức khi nhận yêu cầu HTTP; dịch vụ bị Suspend thủ công phải Resume trong Render Dashboard.</small></div>
       </div>
       <div class="actions"><button id="createRoom" type="button" disabled>＋ Tạo phòng mới</button><button id="join" disabled>Vào phòng bằng mã</button></div>
       <label for="room">Mã phòng bạn bè</label><input id="room" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="Nhập 4 chữ số để tham gia">
@@ -104,6 +104,18 @@
     const joinBtn = $('join'), createRoomBtn = $('createRoom'), leaveBtn = $('leave'), micBtn = $('mic'), soundBtn = $('sound');
     const wakeServerBtn = $('wakeServer'), stopServerBtn = $('stopServer'), checkServerBtn = $('checkServer'), serverStatusEl = $('serverStatus'), serverDot = $('serverDot');
     let serverReady = false, serverCheckBusy = false, serverManuallyOff = false;
+    // Register first: if later initialization throws, the button still reports that click.
+    wakeServerBtn.addEventListener('click', () => {
+      serverStatusEl.textContent = 'Đã nhận thao tác bấm. Đang khởi tạo kết nối…';
+      if (typeof window.__bedrockVoiceRunServerCheck !== 'function') {
+        serverDot.classList.remove('live');
+        serverStatusEl.textContent = 'Nút đã nhận thao tác nhưng mã kết nối chưa khởi tạo. Mở Nhật ký kết nối để xem lỗi JavaScript.';
+        return;
+      }
+      window.__bedrockVoiceRunServerCheck(true).catch(error => {
+        serverStatusEl.textContent = 'Lỗi nút máy chủ: ' + (error?.message || String(error));
+      });
+    });
     const copyRoomBtn = $('copyRoom'), pttBtn = $('ptt'), currentCodeEl = $('currentCode');
     const statusEl = $('status'), dot = $('dot'), peopleEl = $('people'), countEl = $('count');
     const logsEl = $('logs'), logCountEl = $('logCount');
@@ -161,6 +173,7 @@
     window.addEventListener('error', (event) => log('error', 'Lỗi JavaScript', event.message || 'Không rõ lỗi'));
     window.addEventListener('unhandledrejection', (event) => log('error', 'Promise bị lỗi', event.reason?.message || event.reason || 'Không rõ lỗi'));
     log('info', 'Trang đã khởi động.');
+    log('info', 'Build chẩn đoán nút máy chủ: 2026-10-19-r2');
     log('info', 'SkyWay SDK ' + (window.skyway_room ? 'đã tải' : 'chưa tải tại thời điểm khởi động'));
     function setServerState(message, ready=false) {
       serverReady = ready;
@@ -170,22 +183,34 @@
       joinBtn.disabled = !ready || !!room || busy;
       stopServerBtn.disabled = !ready || serverCheckBusy;
     }
-    async function checkBackendOnce(timeoutMs=8000) {
+    async function checkBackendOnce(timeoutMs=8000, wakeRequest=false) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const path = wakeRequest ? '/control/wake' : '/health';
       try {
-        const response = await fetch(LOG_API + '/health', {method:'GET', cache:'no-store', signal:controller.signal});
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const response = await fetch(LOG_API + path + '?_=' + Date.now(), {
+          method:'GET', cache:'no-store', credentials:'omit', signal:controller.signal,
+          headers:{'Accept':'application/json'}
+        });
+        if (!response.ok) {
+          let detail = '';
+          try { const problem = await response.json(); detail = problem.message || problem.error || ''; } catch (_) {}
+          throw new Error('HTTP ' + response.status + (detail ? ' · ' + detail : ''));
+        }
         const data = await response.json();
-        if (!data || !data.ok) throw new Error('Phản hồi health không hợp lệ');
+        if (!data || data.ok !== true) throw new Error('Backend trả về dữ liệu không hợp lệ.');
         if (!data.skywayConfigured) {
-          setServerState('Backend đã thức nhưng thiếu SKYWAY_APP_ID hoặc SKYWAY_SECRET_KEY trong Render.', false);
-          throw new Error('Backend phản hồi nhưng thiếu cấu hình SkyWay. Kiểm tra biến môi trường SKYWAY_APP_ID và SKYWAY_SECRET_KEY trong Render.');
+          setServerState('Backend đã phản hồi nhưng thiếu cấu hình SkyWay trong Render.', false);
+          throw new Error('Backend có phản hồi nhưng thiếu SKYWAY_APP_ID hoặc SKYWAY_SECRET_KEY.');
         }
         serverManuallyOff = false;
-        setServerState('Máy chủ hoạt động và SkyWay đã cấu hình. Có thể tạo hoặc tham gia phòng.', true);
-        log('info', 'Render backend đã sẵn sàng');
-        return true;
+        setServerState('Máy chủ phản hồi. SkyWay đã được cấu hình, có thể tạo hoặc tham gia phòng.', true);
+        log('info', wakeRequest ? 'Render đã nhận yêu cầu đánh thức' : 'Render backend đã sẵn sàng');
+        return data;
+      } catch (error) {
+        if (error?.name === 'AbortError') throw new Error('Quá thời gian chờ ' + Math.round(timeoutMs/1000) + ' giây.');
+        if (error instanceof TypeError) throw new Error('Không nhận được phản hồi từ backend. Kiểm tra mạng, CORS hoặc mở trực tiếp endpoint /health.');
+        throw error;
       } finally { clearTimeout(timeout); }
     }
     const wakeProgressWrap = $('wakeProgressWrap'), wakeProgressBar = $('wakeProgressBar'), wakeProgressPercent = $('wakeProgressPercent'), wakeProgressLabel = $('wakeProgressLabel');
@@ -199,77 +224,89 @@
     function hideWakeProgress() { wakeProgressWrap.hidden = true; }
 
     async function runServerCheck(wake=false) {
-      if (serverCheckBusy) return;
+      if (serverCheckBusy) {
+        log('warn', 'Yêu cầu kiểm tra bị bỏ qua vì một lần kiểm tra khác đang chạy');
+        return;
+      }
       serverCheckBusy = true;
       wakeServerBtn.disabled = true; stopServerBtn.disabled = true; checkServerBtn.disabled = true;
-      if (wake) setWakeProgress(0, 'Đang kiểm tra máy chủ trước khi bật');
+      if (wake) setWakeProgress(4, 'Đã nhận thao tác. Đang gửi yêu cầu tới Render…');
       else hideWakeProgress();
-      setServerState(wake ? 'Đang kiểm tra máy chủ trước khi bật…' : 'Đang kiểm tra máy chủ…');
+      setServerState(wake ? 'Đã nhận thao tác. Đang kết nối Render…' : 'Đang kiểm tra backend…');
+      log('info', wake ? 'Người dùng bấm BẬT / KẾT NỐI MÁY CHỦ' : 'Người dùng bấm KIỂM TRA');
+
       try {
         if (!wake) {
-          try { await checkBackendOnce(8000); }
-          catch (error) {
-            const message = error?.name === 'AbortError' ? 'Kiểm tra quá 8 giây. Máy chủ có thể đang ngủ.' : 'Kiểm tra thất bại: ' + (error?.message || error);
-            setServerState(message + ' Bấm “BẬT MÁY CHỦ” để thử đánh thức.');
-            log('warn', 'Kiểm tra Render thất bại', message);
+          try {
+            await checkBackendOnce(15000, false);
+          } catch (error) {
+            const message = error?.message || String(error);
+            setServerState('Kiểm tra thất bại: ' + message);
+            log('error', 'Kiểm tra backend thất bại', message);
           }
           return;
         }
 
-        // Kiểm tra trước: nếu backend đang hoạt động thì dừng tại đây,
-        // không chạy vòng đánh thức/thử lại.
+        // Render Free tự thức khi nhận yêu cầu HTTP. Endpoint riêng giúp ghi nhận thao tác rõ ràng.
+        setWakeProgress(12, 'Đang gửi yêu cầu đánh thức qua HTTPS…');
         try {
-          await checkBackendOnce(8000);
-          setWakeProgress(100, 'Máy chủ đã hoạt động sẵn');
-          setServerState('Máy chủ đã hoạt động sẵn. Không cần bật lại.', true);
-          log('info', 'Bỏ qua bật máy chủ vì backend đã hoạt động');
+          const data = await checkBackendOnce(20000, true);
+          setWakeProgress(100, 'Backend đã phản hồi thành công');
+          setServerState(data.action === 'wake_request_received'
+            ? 'Backend đã nhận yêu cầu và đang hoạt động. SkyWay đã cấu hình; có thể tạo hoặc tham gia phòng.'
+            : 'Máy chủ đang hoạt động. Có thể tạo hoặc tham gia phòng.', true);
+          log('info', 'Yêu cầu đánh thức hoàn tất', 'action=' + (data.action || 'health_ok') + '; skywayConfigured=' + data.skywayConfigured);
           return;
         } catch (error) {
-          log('info', 'Backend chưa phản hồi; bắt đầu chờ Render khởi động', error?.message || String(error));
-        }
-
-        // Với Render Free, yêu cầu /health đầu tiên có thể tự đánh thức dịch vụ.
-        const progressStartedAt = Date.now();
-        const deadline = progressStartedAt + 90000;
-        let lastError = 'Máy chủ chưa phản hồi';
-        let progressTimer = setInterval(() => {
-          const elapsed = Date.now() - progressStartedAt;
-          setWakeProgress(Math.min(95, elapsed / 90000 * 95), 'Đang đánh thức Render…');
-        }, 400);
-        try {
-        while (Date.now() < deadline) {
-          try {
-            await checkBackendOnce(12000);
-            clearInterval(progressTimer);
-            setWakeProgress(100, 'Máy chủ đã phản hồi thành công');
-            setServerState('Máy chủ đã hoạt động.', true);
+          const detail = error?.message || String(error);
+          log('warn', 'Lần gọi đánh thức đầu tiên chưa thành công; bắt đầu kiểm tra lại', detail);
+          if (/thiếu SKYWAY_APP_ID|thiếu cấu hình SkyWay/i.test(detail)) {
+            setWakeProgress(100, 'Backend phản hồi nhưng thiếu cấu hình');
+            setServerState(detail, false);
             return;
-          } catch (error) {
-            if (/thiếu cấu hình SkyWay/i.test(error?.message || '')) {
-              lastError = error.message;
-              clearInterval(progressTimer);
-              setWakeProgress(Math.min(95, (Date.now() - progressStartedAt) / 90000 * 95), 'Backend phản hồi nhưng thiếu cấu hình');
-              setServerState(lastError, false);
-              log('error', 'Backend hoạt động nhưng thiếu cấu hình SkyWay', lastError);
-              return;
-            }
-            lastError = error?.name === 'AbortError' ? 'Render vẫn đang khởi động…' : 'Đang chờ Render: ' + (error?.message || error);
-            setServerState(lastError + ' Tự thử lại sau 3 giây…');
-            await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
-        setWakeProgress(95, 'Chưa nhận được phản hồi từ máy chủ');
-        setServerState(lastError + ' Đã hết 90 giây. Thử lại hoặc kiểm tra trạng thái dịch vụ Render.');
-        log('warn', 'Hết thời gian đánh thức Render', lastError);
+
+        const progressStartedAt = Date.now();
+        const deadline = progressStartedAt + 90000;
+        let lastError = 'Backend chưa phản hồi';
+        setWakeProgress(14, 'Đang chờ Render khởi động…');
+        const progressTimer = setInterval(() => {
+          const elapsed = Date.now() - progressStartedAt;
+          setWakeProgress(14 + Math.min(81, elapsed / 90000 * 81), 'Đang thử kết nối lại…');
+        }, 500);
+        try {
+          while (Date.now() < deadline) {
+            try {
+              const data = await checkBackendOnce(12000, false);
+              clearInterval(progressTimer);
+              setWakeProgress(100, 'Máy chủ đã phản hồi thành công');
+              setServerState('Máy chủ đã hoạt động. Có thể tạo hoặc tham gia phòng.', true);
+              log('info', 'Đã kết nối lại backend sau khi chờ Render', 'skywayConfigured=' + data.skywayConfigured);
+              return;
+            } catch (error) {
+              lastError = error?.message || String(error);
+              setServerState(lastError + ' Đang thử lại sau 3 giây…');
+              log('warn', 'Chưa kết nối được backend', lastError);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+          setWakeProgress(95, 'Chưa nhận được phản hồi từ backend');
+          setServerState('Không kết nối được sau 90 giây. ' + lastError + ' Nếu dịch vụ đang Suspend thủ công, hãy bấm Resume trong Render Dashboard.');
+          log('error', 'Hết thời gian kết nối Render', lastError);
         } finally { clearInterval(progressTimer); }
+      } catch (error) {
+        const detail = error?.message || String(error);
+        setServerState('Lỗi xử lý nút: ' + detail);
+        log('error', 'Luồng bật máy chủ gặp lỗi', detail);
       } finally {
-        serverCheckBusy = false; wakeServerBtn.disabled = false; checkServerBtn.disabled = false; stopServerBtn.disabled = !serverReady;
+        serverCheckBusy = false;
+        wakeServerBtn.disabled = false;
+        checkServerBtn.disabled = false;
+        stopServerBtn.disabled = !serverReady;
       }
     }
-    wakeServerBtn.addEventListener('click', async () => {
-      serverManuallyOff = false;
-      await runServerCheck(true);
-    });
+    window.__bedrockVoiceRunServerCheck = runServerCheck;
     stopServerBtn.addEventListener('click', async () => {
       if (serverCheckBusy) return;
       const password = window.prompt('Nhập mật khẩu quản trị để xác nhận tắt kết nối:');
