@@ -90,6 +90,21 @@ const server = http.createServer(async (req, res) => {
   }
   const path = new URL(req.url || "/", "http://localhost").pathname;
   if (req.method === "GET" && path === "/health") return json(res, 200, { ok: true, service: "bedrock-voicechat-log-api", axiomConfigured: Boolean(AXIOM_TOKEN), skywayConfigured: Boolean(SKYWAY_APP_ID && SKYWAY_SECRET_KEY), timestamp: new Date().toISOString() }, origin);
+  // A request wakes a sleeping Render Free web service. Manual suspension requires Resume in Render Dashboard.
+  if (req.method === "GET" && path === "/control/wake") {
+    if (!origin || !ALLOWED_ORIGINS.includes(origin)) return json(res, 403, { error: "origin_not_allowed", message: "Chỉ trang Bedrock Voice được phép gọi endpoint này." });
+    if (rateLimited(req)) return json(res, 429, { error: "rate_limited", message: "Quá nhiều yêu cầu. Chờ một phút rồi thử lại." }, origin);
+    return json(res, 200, {
+      ok: true,
+      service: "bedrock-voicechat-log-api",
+      action: "wake_request_received",
+      mode: "render_http_autowake",
+      axiomConfigured: Boolean(AXIOM_TOKEN),
+      skywayConfigured: Boolean(SKYWAY_APP_ID && SKYWAY_SECRET_KEY),
+      message: "Backend đã nhận yêu cầu. Render tự khởi động dịch vụ đang ngủ khi có yêu cầu HTTP; dịch vụ bị Suspend thủ công cần được Resume trong Render Dashboard.",
+      timestamp: new Date().toISOString()
+    }, origin);
+  }
   if (req.method === "GET" && path === "/music/search") {
     if (!origin) return json(res, 403, { error: "origin_not_allowed" });
     if (rateLimited(req)) return json(res, 429, { error: "rate_limited" }, origin);
